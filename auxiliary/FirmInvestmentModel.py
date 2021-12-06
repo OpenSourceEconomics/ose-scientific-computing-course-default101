@@ -1,5 +1,26 @@
+import numpy as np
+from numba import jit, int32
 
+firm_investment_data = [
+    ('alpha', float64),          
+    ('delta', float64),                
+    ('beta', float64),              
+    ('_lambda', float64),            
+    ('nz', int32),
+    ('nk', int32),
+    ('max_iter', int32),
+    ('precision', float64),
+    ('mgrid', float64[:]),
+    ('pr_mat_m', float64[:,:]),
+    ('statenum', int32),
+    ('grid_val', float64[:,:]),
+    ('grid_ind', int32[:,:]),
+    ('Rmat', float64[:,:]),
+    ('CFfirm_mat', float64[:,:]),
+    ('kvec', float64[:]),
+    ]
 
+@jitclass(firm_investment_data)
 class FirmInvestmentModel:
     """
     Class definition.
@@ -14,7 +35,7 @@ class FirmInvestmentModel:
     * nk:       # number of capital grid points
     * max_iter: # max iteration steps (before the solution routine stops and spits out "Did not converge")
     * precision:# precision of value function iteration
-    * mgrid:    # grid of productivity shocks (name remniscent of the first model Terry presented)
+    * mgrid:    # grid of productivity shocks (name reminiscent of the first model Terry presented)
     * pr_mat_m: # transition probabilities (generated from Tauchen method)
     """
     
