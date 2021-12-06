@@ -1,5 +1,7 @@
 import numpy as np
-from numba import jit, int32
+from numba import jit, int32, float64
+from numba.experimental import jitclass
+from auxiliary.helpers_numba import np_max_axis1
 
 firm_investment_data = [
     ('alpha', float64),          
@@ -41,15 +43,15 @@ class FirmInvestmentModel:
     
     def __init__(self,
             alpha,      
-            delta,                
+            delta,
+            mgrid,
+            pr_mat_m,                
             beta = 0.96,              
             _lambda = 0.05,            
             nz = 11,
             nk = 101,
             max_iter = 1000,
-            precision = 0.0001,
-            mgrid = mgrid,
-            pr_mat_m = pr_mat_m):
+            precision = 0.0001):
     
         self.alpha = alpha
         self.delta = delta
@@ -99,7 +101,7 @@ class FirmInvestmentModel:
         self.Rmat = np.reshape(CF_share_mat, (self.statenum, self.nk))
 
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def solve_model_notreshaped(terry):
     """
     Solves the model.

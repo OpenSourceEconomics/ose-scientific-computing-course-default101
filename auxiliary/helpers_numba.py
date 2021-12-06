@@ -12,7 +12,7 @@ def np_max_axis1(x):
         ix[i] = np.argmax(x[i,:])
     return temp, ix
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def np_cumsum_axis1(x):
     """Numba compatible version of np.cumsum(x, axis=1)."""
     temp = np.empty((x.shape[0],x.shape[1]))
