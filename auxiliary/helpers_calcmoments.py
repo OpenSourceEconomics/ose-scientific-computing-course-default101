@@ -24,9 +24,33 @@ def import_data(relative_path, to_keep):
     
     return data
 
+def export_data(data, relative_path="data/SimData", datatype=".csv"):
+    """
+    Export simulated data to file of given type.
+    
+    Parameters
+    ...
+    """
+    cwd = os.getcwd()
+    sourcepath = os.path.join(cwd, relative_path, datatype)
+
+    data.to_csv(sourcepath)
+
+def label_data(data, labels=["%firm_id", "year", "profitability", "inv_rate", "equity_iss", "cashflow", "capital", "prod_shock"]):
+    """
+    Label raw data from simulation.
+    """
+
+    labeled_data = pd.DataFrame(data=data, columns=labels)
+
+    labeled_data = labeled_data.astype({"%firm_id":"int32", "year":"int32"})
+
+    return labeled_data
+
+
 def calc_moments(data):
     """
-    Calculate the mean of profitability and inv_rate.
+    Calculate the full-sample mean of profitability and inv_rate.
     """
     moments = np.zeros(2)
 
@@ -55,6 +79,6 @@ def add_deviations_from_sample_mean(data):
     for var in variables:
         data_merged[var + "_adj"] = data_merged[var] - data_merged[var + "_firmmean"] + data_merged[var].mean()
 
-    data_merged.drop(labels=["year_firmmean", "profitability_firmmean", "inv_rate_firmmean"], axis=1, inplace=True)
+    data_merged.drop(list(data_merged.filter(regex = '_firmmean')), axis=1, inplace=True)
 
     return data_merged

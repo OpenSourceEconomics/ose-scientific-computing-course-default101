@@ -40,6 +40,13 @@ class FirmInvestmentModel:
     * mgrid:    # grid of productivity shocks (name reminiscent of the first model Terry presented)
     * pr_mat_m: # transition probabilities (generated from Tauchen method)
     """
+    # rebuild with inputs: deep_param, discretize_param
+    # deep_param : beta, _lambda, 
+    # discretize_param: nz, nk
+    # approx_param: max_iter, precision
+    # sim_param: nyears, nfirms, nsim
+
+
     
     def __init__(self,
             alpha,      
@@ -99,6 +106,22 @@ class FirmInvestmentModel:
 
         # Static payoff is shareholder payoff
         self.Rmat = np.reshape(CF_share_mat, (self.statenum, self.nk))
+    
+    def _solve_model(self, alpha, delta):
+        return
+
+    def extended_model_sol(self, value_func, policy_func):
+        return
+
+    def _simulate_data(self, policy_func, shock_series, seed):
+        return 0
+
+    def get_sim_mom(self, alpha,delta):
+        dummy = self.solve_model(alpha, delta)
+        return
+
+    def sensitivity_analysis(self, grid_alpha, grid_delta):
+        return
 
 
 #@jit(nopython=True)
