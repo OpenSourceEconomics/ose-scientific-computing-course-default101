@@ -2,6 +2,7 @@ name: student_project
 
 dependencies:
 - numpy
+- numba
 - pandas
 - jupyterlab
 - matplotlib
