@@ -4,16 +4,17 @@ import numpy as np
 
 def import_data(relative_path, to_keep):
     """ 
-    Import csv and keep specified columns.
+    Import csv, keep specified columns, sort based on firm_id and check for missings.
+    (Sorting to ensure that future groupby commands do not alter the ordering of the firms.)
     
-    Parameters
-    ----------
+    Args
+    -----
     relative_path (str):        relative path to csv
     to_keep (list of str):      column names to keep
 
     Returns
     -------
-    dataframe
+    data (pandas.DataFrame)
 
     """
     cwd = os.getcwd()
@@ -21,15 +22,18 @@ def import_data(relative_path, to_keep):
 
     data = pd.read_csv(sourcepath, sep=',', header=0, encoding = "ISO-8859-1")
     data.drop(data.columns.difference(to_keep), 1, inplace=True)
+
+    data.sort_values(by=["%firm_id"], inplace=True)
+
+    if np.isnan(data.values).any():
+        raise ValueError("Sample contains missing values.")
     
-    return data
+    else:
+        return data
 
 def export_data(data, relative_path="data/SimData", datatype=".csv"):
     """
     Export simulated data to file of given type.
-    
-    Parameters
-    ...
     """
     cwd = os.getcwd()
     sourcepath = os.path.join(cwd, relative_path, datatype)
@@ -50,12 +54,21 @@ def label_data(data, labels=["%firm_id", "year", "profitability", "inv_rate", "e
 
 def calc_moments(data):
     """
-    Calculate the full-sample mean of profitability and inv_rate.
+    Calculate (full-sample) the mean of profitability, mean of inv_rate, and variance of profitability.
+
+    Args
+    ----
+    data (pandas.DataFrame):    dataframe with 4 columns: firm, year, profitability, inv_rate
+
+    Returns
+    -------
+    moments (numpy.ndarray):    sample moments: mean profitability, mean inv_rate, variance profitability    
     """
-    moments = np.zeros(2)
+    moments = np.zeros(3)
 
     moments[0] = data["profitability"].mean()
     moments[1] = data["inv_rate"].mean()
+    moments[2] = data["profitability"].var()
 
     return moments
 
@@ -63,13 +76,13 @@ def add_deviations_from_sample_mean(data):
     """
     Adds columns in which [profitability, inv_rate] are demeaned at the firm-level and then the full-sample mean is added again.
 
-    Parameters
-    ----------
-    data (dataframe):           dataframe with firm, year, profitability, inv_rate
+    Args
+    ----
+    data (pandas.DataFrame):           dataframe with 4 columns: firm, year, profitability, inv_rate
 
     Returns
     -------
-    data_merges (dataframe):    dataframe with additional columns profitability_adj, inv_adj
+    data_merges (pandas.DataFrame):    dataframe with additional columns profitability_adj, inv_adj
     """
     mean_by_firm = data.groupby(by=["%firm_id"]).mean()
 
@@ -82,3 +95,23 @@ def add_deviations_from_sample_mean(data):
     data_merged.drop(list(data_merged.filter(regex = '_firmmean')), axis=1, inplace=True)
 
     return data_merged
+
+def get_nyears_per_firm(data):
+    """
+    Stores the number of years each firm appears in the sample.
+
+    Args
+    ----
+    data (pandas.DataFrame):        dataframe with 4 columns: firm, year, profitability, inv_rate
+
+    Returns
+    -------
+    nyears (numpy.ndarray):         vector with the number of years per firms, firms ordered in the same way as in data
+    """
+    # Get collapsed dataframe with counts per firm
+    years_per_firm = data.groupby(by=["%firm_id"]).count()
+
+    out = np.array(np.copy(years_per_firm.iloc[:,0].values))
+    
+    return out
+
