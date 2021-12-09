@@ -52,23 +52,29 @@ def label_data(data, labels=["%firm_id", "year", "profitability", "inv_rate", "e
     return labeled_data
 
 
-def calc_moments(data):
+def calc_moments(data, DataFrame=False):
     """
-    Calculate (full-sample) the mean of profitability, mean of inv_rate, and variance of profitability.
+    Calculate (full-sample) mean of profitability, mean of inv_rate, and variance of profitability.
 
     Args
     ----
-    data (pandas.DataFrame):    dataframe with 4 columns: firm, year, profitability, inv_rate
+    data (pandas.DataFrame or np.ndarray):    sample, for np.ndarrays the columns must be ordered as follows: firm, year, profitability, inv_rate
 
     Returns
     -------
-    moments (numpy.ndarray):    sample moments: mean profitability, mean inv_rate, variance profitability    
+    moments (numpy.ndarray):                  sample moments: mean profitability, mean inv_rate, variance profitability    
     """
     moments = np.zeros(3)
+    
+    if DataFrame == True: # If input is a DataFrame
+        moments[0] = data["profitability"].mean()
+        moments[1] = data["inv_rate"].mean()
+        moments[2] = data["profitability"].var()
 
-    moments[0] = data["profitability"].mean()
-    moments[1] = data["inv_rate"].mean()
-    moments[2] = data["profitability"].var()
+    else:
+        moments[0] = data[:,2].mean()
+        moments[1] = data[:,3].mean()
+        moments[2] = data[:,2].var()
 
     return moments
 

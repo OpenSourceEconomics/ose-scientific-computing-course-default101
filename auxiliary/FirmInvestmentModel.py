@@ -2,6 +2,7 @@ import numpy as np
 from numba import jit, int32, float64
 from numba.experimental import jitclass
 from auxiliary.helpers_numba import np_max_axis1
+from auxiliary.helpers_calcmoments import calc_moments
 
 firm_investment_data = [
     ('alpha', float64),          
@@ -116,12 +117,45 @@ class FirmInvestmentModel:
     def _simulate_data(self, policy_func, shock_series, seed):
         return 0
 
-    def get_sim_mom(self, alpha,delta):
-        dummy = self.solve_model(alpha, delta)
-        return
+    def get_sim_mom(self, alpha, delta):
+        V, pol = self.solve_model(alpha, delta)
+        # TODO output of _solve_model pol function and value function?
 
-    def sensitivity_analysis(self, grid_alpha, grid_delta):
-        return
+        # TODO shock series
+        sim_data = self._simulate_data(V, shock_series, seed)
+
+        return calc_moments(sim_data)
+
+    def sensitivity_analysis(self, grid_alpha, mid_alpha, grid_delta, mid_delta, no_moments=3):
+        """
+        Sensitivity of the model solution to alpha and delta.
+
+        Args
+        ----
+        grid_alpha ():
+        mid_alpha (np.float):   fixed alpha for sensitivity analysis for delta
+        grid_delta ():
+        mid_delta (np.float):   fixed delta for sensitivity analysis for alpha
+        no_moments (int):       number of moments (default: 3)
+
+        Returns
+        -------
+        out_alpha (numpy.ndarray):  simulated moments for varying levels of alpha, of shape (grid_points x 3)
+        out_delta (numpy.ndarray):  simulated moments for varying levels of delta, of shape (grid_points x 3)
+        """
+        n_alpha = len(grid_alpha)
+        n_delta = len(grid_delta)
+
+        out_alpha = np.empty((n_alpha, no_moments))
+        out_delta = np.empty((n_delta, no_moments))
+
+        for i in grid_alpha:
+            out_alpha[i,:] = self.get_sim_mom(i, mid_delta)
+
+        for j in grid_delta:
+            out_delta[j,:] = self.get_sim_mom(mid_alpha, j)
+
+        return out_alpha, out_delta
 
 
 #@jit(nopython=True)
