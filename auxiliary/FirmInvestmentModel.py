@@ -92,10 +92,10 @@ class FirmInvestmentModel:
         # alternative for the following non-jittable version 
         # self.grid_ind[:, 0] = np.kron(np.ones((1, self.nz)), np.arange(0, self.nk))
         # self.grid_ind[:, 1] = np.kron(np.arange(0, self.nz), np.ones((1, self.nk)))
-        self.grid_ind = np.empty((self.statenum,2),dtype=int32)
-        for i in range(self.nz):
-            self.grid_ind[i*self.nk : (i+1)*self.nk,0] = np.arange(0, self.nk, dtype=int32)
-        self.grid_ind[:,1] = np.repeat(np.arange(0, self.nz, dtype=int32), self.nk)
+        # self.grid_ind = np.empty((self.statenum,2),dtype=int32)
+        # for i in range(self.nz):
+        #     self.grid_ind[i*self.nk : (i+1)*self.nk,0] = np.arange(0, self.nk, dtype=int32)
+        # self.grid_ind[:,1] = np.repeat(np.arange(0, self.nz, dtype=int32), self.nk)
 
         self.CFfirm_mat = np.empty((self.statenum, self.nk))
         for i in range(self.nk):
