@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import dual_annealing
 from auxiliary.helpers_calcmoments import *
 
 def objective_function(sample_moments, weight_matrix, terry, alpha, delta):
@@ -17,7 +18,11 @@ def objective_function(sample_moments, weight_matrix, terry, alpha, delta):
         
         return out
 
-def optimization(optimizer, obj_func, parameter_space):
+def optimization(optimizer=dual_annealing, obj_func, parameter_space):
+    """
+    """
+    ret = dual_annealing(obj_func, bounds=parameter_space)
+
     return
 
 def weight_matrix(sample, no_moments):

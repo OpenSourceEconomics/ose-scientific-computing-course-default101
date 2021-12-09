@@ -119,10 +119,9 @@ class FirmInvestmentModel:
 
     def get_sim_mom(self, alpha, delta):
         V, pol = self.solve_model(alpha, delta)
-        # TODO output of _solve_model pol function and value function?
 
         # TODO shock series
-        sim_data = self._simulate_data(V, shock_series, seed)
+        sim_data = self._simulate_data(pol, shock_series, seed)
 
         return calc_moments(sim_data)
 
@@ -149,11 +148,11 @@ class FirmInvestmentModel:
         out_alpha = np.empty((n_alpha, no_moments))
         out_delta = np.empty((n_delta, no_moments))
 
-        for i in grid_alpha:
-            out_alpha[i,:] = self.get_sim_mom(i, mid_delta)
+        for i, alpha in enumerate(grid_alpha):
+            out_alpha[i,:] = self.get_sim_mom(alpha, mid_delta)
 
-        for j in grid_delta:
-            out_delta[j,:] = self.get_sim_mom(mid_alpha, j)
+        for i, delta in enumerate(grid_delta):
+            out_delta[i,:] = self.get_sim_mom(mid_alpha, delta)
 
         return out_alpha, out_delta
 
