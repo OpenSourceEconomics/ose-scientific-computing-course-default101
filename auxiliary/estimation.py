@@ -4,7 +4,6 @@ from auxiliary.helpers_calcmoments import *
 
 def objective_function(sample_moments, weight_matrix, terry, alpha, delta):
     """
-    
     """
     if alpha >= 1 or alpha <= 0:
         out = np.inf
@@ -12,7 +11,8 @@ def objective_function(sample_moments, weight_matrix, terry, alpha, delta):
     elif delta >= 0.3 or delta <= 0:
         out = np.inf
     else:
-        sim_moments = terry.get_sim_mom(alpha,delta)
+        sim_moments = terry._get_sim_moments(alpha,delta)
+        # Adjust depending on inputs of _get_sim_moments
         deviations = sim_moments - sample_moments
         out = deviations.transpose() @ weight_matrix @ deviations 
         

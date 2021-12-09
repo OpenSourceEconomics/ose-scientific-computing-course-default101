@@ -2,6 +2,7 @@ import numpy as np
 from scipy.stats import norm
 from auxiliary.helpers_numba import np_max_axis1
 from auxiliary.helpers_plotting import line_plot, threedim_plot
+from auxiliary.helpers_calcmoments import calc_moments
 
 class Model:
     """
@@ -353,8 +354,46 @@ class Model:
         equity_iss[equity_iss < 0] = -equity_iss[equity_iss<0]
         return value_func, policy_func, opt_policies, equity_iss, capital_grid
 
-    def _get_mom_sensitivity(self):
+    def _get_sim_moments(self, alpha, delta, approx_param):
+
+        # V, pol = self._solve_model(alpha, delta, approx_param)
+        # sim_data = self._simulate_model()
+        # return calc_moments(sim_data)
+
         pass
+
+
+
+    def _get_mom_sensitivity(self, grid_alpha, mid_alpha, grid_delta, mid_delta, no_moments=3):
+        """
+        Sensitivity of the model solution to alpha and delta.
+
+        Args
+        ----
+        grid_alpha ():
+        mid_alpha (np.float):   fixed alpha for sensitivity analysis for delta
+        grid_delta ():
+        mid_delta (np.float):   fixed delta for sensitivity analysis for alpha
+        no_moments (int):       number of moments (default: 3)
+
+        Returns
+        -------
+        out_alpha (numpy.ndarray):  simulated moments for varying levels of alpha, of shape (grid_points x 3)
+        out_delta (numpy.ndarray):  simulated moments for varying levels of delta, of shape (grid_points x 3)
+        """
+        n_alpha = len(grid_alpha)
+        n_delta = len(grid_delta)
+
+        out_alpha = np.empty((n_alpha, no_moments))
+        out_delta = np.empty((n_delta, no_moments))
+
+        for i, alpha in enumerate(grid_alpha):
+            out_alpha[i,:] = self._get_sim_moments(alpha, mid_delta)
+
+        for i, delta in enumerate(grid_delta):
+            out_delta[i,:] = self._get_sim_moments(mid_alpha, delta)
+
+        return out_alpha, out_delta
 
     def visualize_model_sol(self, alpha, delta, approx_param):
         """
