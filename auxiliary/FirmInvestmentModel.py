@@ -153,7 +153,9 @@ def solve_model_notreshaped(terry):
 
     while i < terry.max_iter and solerr > terry.precision:
         
-        EVmat = np.kron((np.reshape(Vold, (terry.nz, terry.nk)).T@terry.pr_mat_m.T), np.ones((1, terry.nk))).T
+        EVmat = np.kron((np.reshape(Vold, \
+            (terry.nz, terry.nk)).T@terry.pr_mat_m.T),\
+                 np.ones((1, terry.nk))).T
 
         RHSmat = terry.Rmat + terry.beta*EVmat
         V, polind = np_max_axis1(RHSmat)
@@ -171,6 +173,7 @@ def solve_model_notreshaped(terry):
         Vold = V+(maxshift + minshift)/2
         polinold = polind
         # polold = pol
+            
         
     if i == terry.max_iter:
         print("Failed to converge!")
