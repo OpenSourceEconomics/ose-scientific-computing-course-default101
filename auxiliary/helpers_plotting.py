@@ -15,6 +15,24 @@ def line_plot(x, df_y, nz, xlabel, ylabel, title):
     ax.legend()
     plt.show()
 
+def plot_mom_sensitivity(grids, moments, xlabel, \
+                    labels=["mean profitability", "mean inv rate", "var profitability"],\
+                    title="Moment sensitivities to alpha and delta", nmoments=3):
+    
+    fig, axs = plt.subplots(nrows=nmoments,ncols=2, sharex='col')
+
+    fig.suptitle(title)
+
+    for i in range(nmoments):
+        axs[i,0].plot(grids[0], moments[0][:,i], label=labels[i])
+        axs[i,1].plot(grids[1], moments[1][:,i])
+        axs[i,0].legend()
+
+    axs[i,0].set_xlabel('{}'.format(xlabel['alpha']))
+    axs[i,1].set_xlabel('{}'.format(xlabel['delta']))
+
+    plt.show()
+
 def threedim_plot(x_grid,y_grid,z,xlabel,ylabel,zlabel,title):
     x, y = np.meshgrid(x_grid, y_grid)
 
