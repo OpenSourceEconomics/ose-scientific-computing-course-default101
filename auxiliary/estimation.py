@@ -5,18 +5,10 @@ from auxiliary.helpers_calcmoments import *
 def objective_function(sample_moments, weight_matrix, terry, alpha, delta):
     """
     """
-    if alpha >= 1 or alpha <= 0:
-        out = np.inf
-        # TODO sensible choice?
-    elif delta >= 0.3 or delta <= 0:
-        out = np.inf
-    else:
-        sim_moments = terry._get_sim_moments(alpha,delta)
-        # Adjust depending on inputs of _get_sim_moments
-        deviations = sim_moments - sample_moments
-        out = deviations.transpose() @ weight_matrix @ deviations 
+    f = lambda alpha, delta: ((terry._get_sim_moments(alpha,delta)- sample_moments).T 
+        @weight_matrix@(terry._get_sim_moments(alpha,delta)- sample_moments))
         
-        return out
+    return f
 
 def optimization(optimizer=dual_annealing, obj_func, parameter_space):
     """
