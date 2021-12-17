@@ -1,8 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.stats import norm
-from auxiliary.helpers_numba import np_max_axis1
-from auxiliary.helpers_plotting import line_plot, threedim_plot
+from auxiliary.helpers_plotting import line_plot, threedim_plot, plot_mom_sensitivity
 from auxiliary.helpers_calcmoments import calc_moments
+from auxiliary.helpers_general import gridlookup
 
 class Model:
     """
@@ -10,25 +11,25 @@ class Model:
     
     """
 
-    def __init__(self, deep_param, discretization_param) -> None:
+    def __init__(self, deep_param, discretization_param, approx_param) -> None:
 
         self.beta = deep_param["beta"]
         self.gamma = deep_param["gamma"]
-        self.r_inv = self.beta/(1-self.beta)
-        # self.rho = deep_param["rho"]
-        # self.sigma = deep_param["sigma"] 
+        self.r_inv = self.beta/(1-self.beta) 
 
         self.nz = discretization_param["size_shock_grid"]
-        # self.range_z = discretization_param["range_shock_grid"]
-
         self.shock_grid, self.shock_transition = self._create_shock_grid(
             rho=deep_param["rho"],
             sigma=deep_param["sigma"],
             m=discretization_param["range_shock_grid"],
             n=discretization_param["size_shock_grid"])
+        self.shock_stat_distr, self.shock_cum_transition = self._get_shock_stat_distr()
+        
+        self.max_iter = approx_param["max_iter"]
+        self.precision = approx_param["precision"]
+        self.nk = approx_param["size_capital_grid"]
 
-
-    def _solve_model(self, alpha, delta, approx_param, verbose=True, print_skip=25): 
+    def _solve_model(self, alpha, delta, renew_a_d_flag=True, verbose=True, print_skip=25): 
         """
             Solves the model.
 
@@ -44,24 +45,23 @@ class Model:
             * equity_iss (vector of dimension terry.statenum)   negative part of equity issuance
         """
         
-        max_iter = approx_param["max_iter"]
-        precision = approx_param["precision"]
-        nk = approx_param["size_capital_grid"]
+        if renew_a_d_flag:
+            self._create_capital_grid(alpha, delta)
+            self._create_CF_grid(alpha, delta)
 
         # Initialize the guess for the value function
-        value_func = np.zeros(self.nz*nk)
-        Rmat, _, _ = self._create_CF_grid(alpha, delta, nk)
+        value_func = np.zeros(self.nz*self.nk)
 
         i = 0
-        solerr = precision + 1
+        solerr = self.precision + 1
 
-        while i < max_iter and solerr > precision:
+        while i < self.max_iter and solerr > self.precision:
             
             EVmat = np.kron((np.reshape(value_func,\
-                 (self.nz, nk)).T@self.shock_transition.T),\
-                      np.ones((1, nk))).T
+                 (self.nz, self.nk)).T@self.shock_transition.T),\
+                      np.ones((1, self.nk))).T
 
-            RHSmat = Rmat + self.beta*EVmat
+            RHSmat = self.Rmat + self.beta*EVmat
             V = np.amax(RHSmat, axis=1)
 
             value_diff = V - value_func
@@ -78,10 +78,10 @@ class Model:
             
         policy_func = np.argmax(RHSmat, axis=1)
 
-        if i == max_iter:
+        if i == self.max_iter:
             print("Failed to converge!")
 
-        if verbose and i < max_iter:
+        if verbose and i < self.max_iter:
             print("\nConverged in", i, " iterations.")
 
 
@@ -95,50 +95,65 @@ class Model:
         # cumulative distribution function of the stationary distribution
         cumpi0 = np.cumsum(pi0) # here the original np.cumsum works, since it is a 1d array
 
-        return cumpi0
+        cumpiz = np.cumsum(self.shock_transition, axis=1)
 
-    def _get_shock_series(self):
+        return cumpi0, cumpiz
 
-        
-        # Total time for the loop
-        NyearsPerFirmsburn = NYearsPerFirms + burnin
+    def _get_shock_series(self, sim_param):
 
-        # vector that stores the value for z
-        zsim = np.zeros((NyearsPerFirmsburn, NFirms))
-        izsim = zsim.copy()
-        
-        
-        runif = np.random.uniform(0,1, size=(NyearsPerFirmsburn, NFirms))
-
-        # Draw and store the initial values of z
-        for i in range(0, NFirms):
-            izsim[0,i] = np.sum(((runif[0, i] - cumpi0) >= 0)*1)
-            izsim[0,i] = min([int(izsim[0,i]) + 1, nz])
-            zsim[0,i]  = mgrid[int(izsim[0,i])]
-
-        # Simulate the process for all the other z
-        cumpiz = np_cumsum_axis1(terry.pr_mat_m)
-        NyearsPerFirms1 = NyearsPerFirmsburn-1
-        for i in range(0, NFirms):
-            for t in range(0, NyearsPerFirms1):
-                cumpizi = cumpiz[int(izsim[t, i])-1, :]
-                izsim[t+1, i] = np.sum(((runif[t,i] - cumpizi) >= 0)*1)
-                izsim[t+1, i] = min([izsim[t+1, i]+1, nz])
-                zsim[t+1, i] = terry.mgrid[int(izsim[t+1, i])-1]
-        pass
-
-    def _setup_sim(self, sim_param):
 
         nfirms = sim_param["number_firms"]
         nyears = sim_param["number_years_per_firm"]
         nsim = sim_param["number_simulations_per_firm"]
+        burnin = sim_param["burnin"]
 
-        k0val = (terry.kvec[0] + terry.kvec[terry.nk-1])/2
-        shock_series = self._get_shock_series()
+        M = nfirms*nsim
 
-        pass
+        # Total time for the loop
+        NyearsPerFirmsburn = nyears + burnin
 
-    def _simulate_model(self):
+        # vector that stores the value for z
+        zsim = np.zeros((NyearsPerFirmsburn, M))
+        izsim = np.zeros((NyearsPerFirmsburn, M), dtype=np.int8)
+        
+        
+        runif = np.random.uniform(0,1, size=(NyearsPerFirmsburn, M))
+
+        # Draw and store the initial values of z
+
+        for i in range(0, M):
+            izsim[0,i] = np.sum(((runif[0, i] - self.shock_stat_distr) >= 0))
+            zsim[0,i]  = self.shock_grid[int(izsim[0,i])]
+
+        # Simulate the process for all the other z
+        NyearsPerFirms1 = NyearsPerFirmsburn-1
+        for i in range(0, M):
+            for t in range(1, NyearsPerFirmsburn):
+                cumpizi = self.shock_cum_transition[int(izsim[t-1, i]), :]
+                izsim[t, i] = np.sum(((runif[t,i] - cumpizi) >= 0))
+                zsim[t, i] = self.shock_grid[int(izsim[t, i])]
+
+        # print(zsim, izsim)
+
+        return zsim, izsim
+
+    def _simulate_model(self, alpha, delta, sim_param):
+
+        shock_series, shock_series_indices = self._get_shock_series(sim_param)
+        _, policy_func = self._solve_model(alpha, delta)
+        start_capital = self._get_start_capital()
+
+        SimData = self._run_sim(alpha, delta, policy_func, start_capital, shock_series, shock_series_indices, sim_param)
+        
+        return SimData
+
+    def _get_start_capital(self):
+
+        start_capital = (self.capital_grid[0] + self.capital_grid[self.nk-1])/2
+
+        return start_capital
+
+    def _run_sim(self, alpha, delta, policy_func, start_capital, shock_series, shock_series_indices, sim_param):
         """
             Simulates a panel.
 
@@ -163,48 +178,82 @@ class Model:
             ** col8: z
         """
         # Solve the model for the instance terry
-        V, polind, pol, equity_iss = solve_model_notreshaped(terry)
+        # V, polind, pol, equity_iss = solve_model_notreshaped(terry)
+
 
         # Reshape
-        pol = np.reshape(pol, (terry.nz, terry.nk))
+        policy_func = np.reshape(policy_func, (self.nz, self.nk))
 
         # Set seed
-        np.random.seed(seed)
+        np.random.seed(sim_param["seed"])
+
+        
+        nfirms = sim_param["number_firms"]
+        nyears = sim_param["number_years_per_firm"]
+        nsim = sim_param["number_simulations_per_firm"]
+        burnin = sim_param["burnin"]
+        
+        M = nfirms*nsim
+
+        # Total time for the loop
+        NyearsPerFirmsburn = nyears + burnin
 
 
         # storage variables       
-        ksim = np.zeros((NyearsPerFirmsburn+1, NFirms))
-        ksim[0, 0:NFirms] = k0val #do all firms start with the same capital? check def of k0val and terrys kvec
-        ysim = np.zeros((NyearsPerFirmsburn, NFirms))
-        # Important to make deep copies not pointers (!)
-        esim = ysim.copy() #?
-        profitsim = esim.copy()
-        profitabilitysim = esim.copy()
-        investmentrate = esim.copy()
+        ksim = np.zeros((NyearsPerFirmsburn+1, nfirms))
+        ksim[0, 0:nfirms] = start_capital #do all firms start with the same capital? check def of k0val and terrys kvec
+
+        ysim = np.zeros((NyearsPerFirmsburn, nfirms))
+        esim = np.zeros((NyearsPerFirmsburn, nfirms))
+        profitsim = np.zeros((NyearsPerFirmsburn, nfirms))
+        profitabilitysim = np.zeros((NyearsPerFirmsburn, nfirms))
+        investmentrate = np.zeros((NyearsPerFirmsburn, nfirms))
         
         # Simulate panel of firms
         # double loop on time and firm
-        for i in range(0, NFirms):
+        for i in range(0, nfirms):
             for t in range(0, NyearsPerFirmsburn):
                 kval = ksim[t, i]
-                iz = izsim[t, i]
-                iloc = gridlookup(terry.nk, terry.kvec, kval)
-                weight = (terry.kvec[iloc+1] - kval) / ((terry.kvec[iloc+1]) - terry.kvec[iloc])
-                kfval = pol[int(iz)-1, iloc]*weight + pol[int(iz)-1, iloc+1]*(1-weight)
+                iz = shock_series_indices[t, i]
+                iloc = gridlookup(self.nk, self.capital_grid, kval)
+                weight = (self.capital_grid[iloc+1] - kval) / ((self.capital_grid[iloc+1]) - self.capital_grid[iloc])
+                kfval = policy_func[int(iz)-1, iloc]*weight + policy_func[int(iz)-1, iloc+1]*(1-weight)
 
                 ksim[t+1, i] = kfval
 
-                ysim[t, i] = zsim[t, i-1]*(kval**terry.alpha)
+                ysim[t, i] = shock_series[t, i-1]*(kval**alpha)
                 profitabilitysim[t, i] = ysim[t, i]/kval
-                esim[t, i] = max(kfval - (ysim[t, i] + (1-terry.delta)*kval),  0)
-                investmentrate[t, i] = (kfval - (1-terry.delta)*kval)/kval
+                esim[t, i] = max(kfval - (ysim[t, i] + (1-delta)*kval),  0)
+                investmentrate[t, i] = (kfval - (1-delta)*kval)/kval
                 if (esim[t, i]>0):
-                    esim[t, i] = esim[t, i]*(1+terry._lambda)
-                    profitsim[t, i] = (1+terry._lambda)*(ysim[t, i] + (1-terry.delta)*kval - kfval)
+                    esim[t, i] = esim[t, i]*(1+self.gamma)
+                    profitsim[t, i] = (1+self.gamma)*(ysim[t, i] + (1-delta)*kval - kfval)
                 else:
-                    profitsim[t, i] = ysim[t, i] + (1-terry.delta)*kval - kfval
-                    
+                    profitsim[t, i] = ysim[t, i] + (1-delta)*kval - kfval
+
+                # print(kval, kfval)
+
         
+                    
+        k = 8 # number of columns in Simdata
+        SimData = np.zeros((nfirms*nyears, k)) # Allocate final panel
+
+        # Fill final panel (see description of function)
+        for id_n in range(0, nfirms):
+            SimData[(id_n*nyears):(id_n+1)*nyears, ] = (
+                np.concatenate((
+
+                np.expand_dims(np.repeat(np.array([id_n]), nyears), axis = 1),
+                np.expand_dims(np.arange(0, nyears), axis = 1),
+                np.expand_dims(profitabilitysim[(burnin):(burnin+nyears), id_n], axis = 1),
+                np.expand_dims(investmentrate[(burnin):(burnin+nyears), id_n], axis = 1),
+                np.expand_dims(esim[(burnin):(burnin+nyears), id_n], axis = 1),
+                np.expand_dims(ysim[(burnin):(burnin+nyears), id_n], axis = 1),
+                np.expand_dims(ksim[(burnin):(burnin+nyears), id_n], axis = 1),
+                np.expand_dims(shock_series[(burnin):(burnin+nyears), id_n], axis = 1)
+
+                ), axis = 1)
+            )
                     
         return SimData
 
@@ -293,78 +342,70 @@ class Model:
 
         return x, P
 
-    def _create_capital_grid(self, alpha, delta, nk):
+    def _create_capital_grid(self, alpha, delta):
         # Define the capital grid
 
         k_low, k_high = (alpha * self.shock_grid[[0, self.nz-1]]
             * self.beta / (1 - (1 - delta) * self.beta))**(1 / (1 - alpha))
 
-        capital_grid = np.linspace(0.5*k_low, k_high, nk)
-
-        klow = 0.5*(alpha*self.shock_grid[0]*self.beta/(1-(1-delta)*self.beta))**(1/(1-alpha))
-        khigh = (alpha*self.shock_grid[self.nz-1]*self.beta/(1-(1-delta)*self.beta))**(1/(1-alpha))
-        
-        kvec = np.linspace(klow, khigh, nk)
-
-        np.testing.assert_array_equal(capital_grid, kvec)
+        capital_grid = np.linspace(0.5*k_low, k_high, self.nk)
 
         # Create grid_val
-        grid_val = np.empty((self.nz * nk, 2))
+        grid_val = np.empty((self.nz * self.nk, 2))
         grid_val[:,0] = np.tile(capital_grid, self.nz)
-        grid_val[:,1] = np.repeat(self.shock_grid, nk)
+        grid_val[:,1] = np.repeat(self.shock_grid, self.nk)
 
-        # Create grid_ind
-        # grid_ind = np.empty((self.nz*nk,2))
-        # grid_ind[:,0] = np.tile(np.arange(nk), self.nz)
-        # grid_ind[:,1] = np.repeat(np.arange(self.nz), nk)
+        self.capital_grid = capital_grid
+        self.grid_val = grid_val
 
-        return capital_grid, grid_val#, grid_ind
+        return 1
 
-    def _create_CF_grid(self, alpha, delta, nk):
-        
-        capital_grid, grid_val = self._create_capital_grid(alpha, delta, nk)
+    def _create_CF_grid(self, alpha, delta):
 
-        CFfirm_mat = np.empty((self.nz*nk, nk))
+        CFfirm_mat = np.empty((self.nz*self.nk, self.nk))
 
-        for i in range(nk):
-            CFfirm_mat[:,i] = grid_val[:,1]*grid_val[:,0]**alpha + (1-delta) * grid_val[:,0] - capital_grid[i]
+        for i in range(self.nk):
+            CFfirm_mat[:,i] = self.grid_val[:,1]*self.grid_val[:,0]**alpha + (1-delta) * self.grid_val[:,0] - self.capital_grid[i]
 
         CF_share_mat = CFfirm_mat.ravel()
         CF_share_mat[CF_share_mat<0] = (1+self.gamma)*CF_share_mat[CF_share_mat<0]
 
         # Static payoff is shareholder payoff
-        Rmat = np.reshape(CF_share_mat, (self.nz*nk, nk))
-        return Rmat, CFfirm_mat, capital_grid
+        Rmat = np.reshape(CF_share_mat, (self.nz*self.nk, self.nk))
 
-    def _get_full_model_sol(self, alpha, delta, approx_param):
+        self.Rmat = Rmat
+        self.CFfirm_mat = CFfirm_mat
+        return 1
 
-        nk = approx_param["size_capital_grid"]
+    def _get_full_model_sol(self, alpha, delta, renew_a_d_flag=True):
 
-        value_func, policy_func = self._solve_model(alpha, delta, approx_param)
-        _, CFfirm_mat, capital_grid = self._create_CF_grid(alpha, delta, nk)
+        value_func, policy_func = self._solve_model(alpha, delta, renew_a_d_flag=renew_a_d_flag)
         # optimal policy
-        opt_policies = capital_grid[policy_func]
+        opt_policies = self.capital_grid[policy_func]
 
         # Select equity issuance based on optimized policy index
         equity_iss = np.empty(len(policy_func))
-        for i in np.arange(self.nz*nk):
-            equity_iss[i] = CFfirm_mat[i, policy_func[i]]
+        for i in np.arange(self.nz*self.nk):
+            equity_iss[i] = self.CFfirm_mat[i, policy_func[i]]
 
         equity_iss[equity_iss >= 0] = 0
         equity_iss[equity_iss < 0] = -equity_iss[equity_iss<0]
-        return value_func, policy_func, opt_policies, equity_iss, capital_grid
+        return value_func, policy_func, opt_policies, equity_iss
 
-    def _get_sim_moments(self, alpha, delta, approx_param):
+    def _get_sim_moments(self, alpha, delta, sim_param):
 
-        # V, pol = self._solve_model(alpha, delta, approx_param)
-        # sim_data = self._simulate_model()
-        # return calc_moments(sim_data)
+        sim_data = self._simulate_model(alpha, delta, sim_param)
 
-        pass
+        moments = calc_moments(sim_data)
+        return moments
 
+    def _get_objective_func(self, approx_param):
 
+        f = lambda a, d: self._get_sim_moments(a,d, approx_param)
 
-    def _get_mom_sensitivity(self, grid_alpha, mid_alpha, grid_delta, mid_delta, no_moments=3):
+        return f
+
+    def _get_mom_sensitivity(self, grid_alpha, mid_alpha, grid_delta, mid_delta, sim_param, no_moments=3):
         """
         Sensitivity of the model solution to alpha and delta.
 
@@ -384,18 +425,18 @@ class Model:
         n_alpha = len(grid_alpha)
         n_delta = len(grid_delta)
 
-        out_alpha = np.empty((n_alpha, no_moments))
-        out_delta = np.empty((n_delta, no_moments))
+        moments_alpha = np.empty((n_alpha, no_moments))
+        moments_delta = np.empty((n_delta, no_moments))
 
         for i, alpha in enumerate(grid_alpha):
-            out_alpha[i,:] = self._get_sim_moments(alpha, mid_delta)
+            moments_alpha[i,:] = self._get_sim_moments(alpha, mid_delta, sim_param)
 
         for i, delta in enumerate(grid_delta):
-            out_delta[i,:] = self._get_sim_moments(mid_alpha, delta)
+            moments_delta[i,:] = self._get_sim_moments(mid_alpha, delta, sim_param)
 
-        return out_alpha, out_delta
+        return moments_alpha, moments_delta
 
-    def visualize_model_sol(self, alpha, delta, approx_param):
+    def visualize_model_sol(self, alpha, delta, renew_a_d_flag=True):
         """
             Visualizes the model solution (in 2D and 3D) taking alpha and delta as input for instantiating the class FirmInvestmentModel.
 
@@ -408,28 +449,101 @@ class Model:
             ------
             plots
         """
-        
 
-        nk = approx_param["size_capital_grid"]
         # Solve the model
-        value_func, _, opt_policies, equity_iss, capital_grid = self._get_full_model_sol(alpha, delta, approx_param)
+        value_func, _, opt_policies, equity_iss = self._get_full_model_sol(alpha, delta, renew_a_d_flag=renew_a_d_flag)
 
         # Reshape
-        value_func = np.reshape(value_func, (self.nz, nk))
-        opt_policies = np.reshape(opt_policies, (self.nz, nk))
-        equity_iss = np.reshape(equity_iss, (self.nz, nk))
+        value_func = np.reshape(value_func, (self.nz, self.nk))
+        opt_policies = np.reshape(opt_policies, (self.nz, self.nk))
+        equity_iss = np.reshape(equity_iss, (self.nz, self.nk))
 
         # Create contour lines
-        line_plot(capital_grid, value_func, self.nz, 'Firm Capital k', 'V(z,k)', "Firm Value, (alpha, delta) = ({}, {})".format(alpha, delta))
-        line_plot(capital_grid, opt_policies, self.nz, 'Firm Capital k', 'kprime(z,k)', "Firm Capital Choice, (alpha, delta) = ({}, {})".format(alpha, delta))
-        line_plot(capital_grid, equity_iss, self.nz, 'Firm Capital k', 'Negative Part(Equity Issuance)', "Firm Equity Issuance, (alpha, delta) = ({}, {})".format(alpha, delta))
+        line_plot(self.capital_grid, value_func, self.nz, 'Firm Capital k', 'V(z,k)', "Firm Value, (alpha, delta) = ({}, {})".format(alpha, delta))
+        line_plot(self.capital_grid, opt_policies, self.nz, 'Firm Capital k', 'kprime(z,k)', "Firm Capital Choice, (alpha, delta) = ({}, {})".format(alpha, delta))
+        line_plot(self.capital_grid, equity_iss, self.nz, 'Firm Capital k', 'Negative Part(Equity Issuance)', "Firm Equity Issuance, (alpha, delta) = ({}, {})".format(alpha, delta))
 
         # Create 3D plots
-        threedim_plot(self.shock_grid, capital_grid, value_func, "z", "k", "V(z,k)", "Firm Value, (alpha, delta) = ({}, {})".format(alpha, delta))
-        threedim_plot(self.shock_grid, capital_grid, opt_policies, "z", "k", "kprime(z,k)", "Firm Capital Choice, (alpha, delta) = ({}, {})".format(alpha, delta))
-        threedim_plot(self.shock_grid, capital_grid, equity_iss, "z", "k", "Negative Part(Equity Issuance)", "Negative Part(Equity Issuance), (alpha, delta) = ({}, {})".format(alpha, delta))
+        threedim_plot(self.shock_grid, self.capital_grid, value_func, "z", "k", "V(z,k)", "Firm Value, (alpha, delta) = ({}, {})".format(alpha, delta))
+        threedim_plot(self.shock_grid, self.capital_grid, opt_policies, "z", "k", "kprime(z,k)", "Firm Capital Choice, (alpha, delta) = ({}, {})".format(alpha, delta))
+        threedim_plot(self.shock_grid, self.capital_grid, equity_iss, "z", "k", "Negative Part(Equity Issuance)", "Negative Part(Equity Issuance), (alpha, delta) = ({}, {})".format(alpha, delta))
         
+    def visualize_mom_sensitivity(self, visualization_param, sim_param):
+
+        a_bounds = visualization_param["alpha grid bounds"]
+        d_bounds = visualization_param["delta grid bounds"]
+        mid_alpha = visualization_param["fixed alpha"]
+        mid_delta = visualization_param["fixed delta"]
+        ngrid = visualization_param["parameter grid size"]
+
+        grid_alpha, grid_delta = self._get_a_d_grids(a_bounds, d_bounds, ngrid)
+        
+        x, y = self._get_mom_sensitivity(grid_alpha, mid_alpha, grid_delta, mid_delta, sim_param)
+
+        xlabel = {
+            'alpha' : 'Parameter alpha for fixed delta={}'.format(mid_delta),
+            'delta' : 'Parameter delta for fixed alpha={}'.format(mid_alpha),
+        }
+
+        plot_mom_sensitivity((grid_alpha, grid_delta), (x,y), xlabel)
 
 
-    def visualize_mom_sensitivity(self):
-        pass
+    def _get_a_d_grids(self, a_bounds, d_bounds, ngrid):
+
+        grid_alpha = np.linspace(a_bounds[0], a_bounds[1], ngrid)
+        grid_delta = np.linspace(d_bounds[0], d_bounds[1], ngrid)
+
+        return grid_alpha, grid_delta
+
+    def test_model_solve(self, alpha, delta):
+        
+        self.capital_grid = self._create_capital_grid(alpha, delta)
+
+
+if __name__=='__main__':
+
+    
+    seed = 10082021
+    np.random.seed(seed)
+
+    alpha = 0.5
+    delta = 0.05
+    
+    deep_param = {
+        "beta" : 0.96,
+        "gamma": 0.05,
+        "rho" : 0.7, 
+        "sigma" : 0.15
+    }
+
+    discretization_param = {
+        "size_shock_grid" : 11, 
+        "range_shock_grid" : 2.575
+    }
+
+    approx_param = {
+        "max_iter" : 30, 
+        "precision" : 1e-4, 
+        "size_capital_grid" : 101, 
+    }
+
+    sim_param = {
+        "number_firms" : 20, 
+        "number_simulations_per_firm" : 1, 
+        "number_years_per_firm" : 10, 
+        "burnin" : 30, 
+        "seed" : 10082021
+    }
+
+    visualization_param = {
+        "alpha grid bounds" : (0.45, 0.55), 
+        "delta grid bounds" : (0.04,0.06),
+        "fixed alpha" : alpha, 
+        "fixed delta" : delta, 
+        "parameter grid size" : 3
+    }
+
+    model = Model(deep_param, discretization_param, approx_param)
+    model._solve_model(alpha, delta, approx_param)
+
+    model.visualize_mom_sensitivity(visualization_param, sim_param)
