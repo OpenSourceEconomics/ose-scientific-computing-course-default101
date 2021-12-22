@@ -1,7 +1,8 @@
 import numpy as np
 from auxiliary.Model import Model
+from auxiliary.Sample import Sample
 from auxiliary.tauchen import approx_markov
-from auxiliary.estimation import *
+from auxiliary.estimation_func import *
 from auxiliary.helpers_calcmoments import import_data
 from numpy.linalg import inv
 
@@ -48,7 +49,14 @@ if __name__=='__main__':
         "parameter grid size" : 15
     }
 
+    mom_param = {
+        "no_moments" : 3, 
+        "no_param" : 2,
+    }
+
     model = Model(deep_param, discretization_param, approx_param)
+    sample = Sample(mom_param)
+
     # model._solve_model(alpha, delta, approx_param)
 
     # model.visualize_model_sol(alpha, delta, approx_param)
@@ -58,5 +66,6 @@ if __name__=='__main__':
     # print(f'{est=}')
     # print(f'{sim_mom=}')
 
-    test = get_estimation_results(model, sim_param)
-    print(test)
+    test1, test2 = get_estimation_results(sample, model, sim_param)
+    print(f'{test1=}')
+    print(f'{test2=}')
