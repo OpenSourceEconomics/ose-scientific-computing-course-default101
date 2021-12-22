@@ -3,14 +3,15 @@ from auxiliary.Model import Model
 from auxiliary.tauchen import approx_markov
 from auxiliary.estimation import *
 from auxiliary.helpers_calcmoments import import_data
+from numpy.linalg import inv
 
 if __name__=='__main__':
 
     seed = 10082021
     np.random.seed(seed)
 
-    alpha = 0.5
-    delta = 0.05
+    # alpha = 0.5
+    # delta = 0.05
     
     deep_param = {
         "beta" : 0.96,
@@ -42,8 +43,8 @@ if __name__=='__main__':
     visualization_param = {
         "alpha grid bounds" : (0.35, 0.65), 
         "delta grid bounds" : (0.01,0.1),
-        "fixed alpha" : alpha, 
-        "fixed delta" : delta, 
+        "fixed alpha" : 0.5, 
+        "fixed delta" : 0.05, 
         "parameter grid size" : 15
     }
 
@@ -53,5 +54,9 @@ if __name__=='__main__':
     # model.visualize_model_sol(alpha, delta, approx_param)
     # model.visualize_mom_sensitivity(visualization_param, sim_param)
 
-    result = get_estimation_results(model, sim_param)
-    print(f'{result=}')
+    # est, sim_mom = get_estimation_results(model, sim_param)
+    # print(f'{est=}')
+    # print(f'{sim_mom=}')
+
+    test = get_estimation_results(model, sim_param)
+    print(test)

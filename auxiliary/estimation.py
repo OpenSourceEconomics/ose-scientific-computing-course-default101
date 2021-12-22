@@ -4,6 +4,7 @@ from scipy.optimize import dual_annealing
 from auxiliary.helpers_calcmoments import *
 from auxiliary.Model import Model
 from auxiliary.tauchen import approx_markov
+from numpy.linalg import inv
 
 def _objective_func(sample_moments, weight_matrix, terry, sim_param):
     """
@@ -23,6 +24,26 @@ def _run_optimization(obj_func, parameter_space):
 
 def _get_weight_matrix(sample, sample_mom, no_moments):
     """
+    Choice of weight matrix suggested on slide 19/76 in Part 2 Handout.
+    No idea why.
+    """
+    covar_emp_mom = _get_covar_emp_moments(sample, sample_mom, no_moments)
+
+    try:
+        out = inv(covar_emp_mom)
+
+    except np.linalg.LinAlgError as e:
+        if 'Singular matrix' in str(e):
+            print("Empirical covariance matrix not invertible. Use identity as weight matrix instead.")
+            out = np.identity(no_moments)
+        else:
+            raise
+        
+    return out
+
+def _get_covar_emp_moments(sample, sample_mom, no_moments):
+    """
+    REDO
     Calculates the weight matrix from influence functions with clustering at the firm level.
 
     Args
@@ -98,9 +119,6 @@ def _get_sample():
     
     return data
 
-def _get_covar_est():
-    pass
-
 def _optimization(model, sim_param):
     """
     # OPEN: take out parameters of dual_annealing!
@@ -112,15 +130,40 @@ def _optimization(model, sim_param):
     f = _objective_func(sample_moments, weight_mat, model, sim_param)
     bounds=sim_param["bounds_optimizer"]
 
-    out = _run_optimization(f, bounds)['x']
-    # available keys: ['success', 'status', 'x', 'fun', 'nit', 'nfev', 'njev', 'nhev', 'message']
+    out = _run_optimization(f, bounds)
+    # out is a dictionary with keys: ['success', 'status', 'x', 'fun', 'nit', 'nfev', 'njev', 'nhev', 'message']
     
-    # return parameter_est, se_est, covar_est, sim_moments_est
     return out
+
+def _get_sim_moments_est(model, alpha, delta, sim_param):
+    """
+    """
+    sim_moments = model._get_sim_moments(alpha, delta, sim_param)
+
+    return sim_moments
+
+def _get_Jacobian():
+    pass
+
+def _get_covar_est():
+    pass
 
 def get_estimation_results(model, sim_param):
     """
     """
-    result = _optimization(model, sim_param)
-    
-    return result
+    # result = _optimization(model, sim_param)
+
+    # final_est = result['x']
+    # alpha_est = final_est[0]
+    # delta_est = final_est[1]
+
+    # sim_moments_est = _get_sim_moments_est(model, alpha_est, delta_est, sim_param)
+
+    # # return parameter_est, se_est, covar_est, sim_moments_est
+    # return final_est, sim_moments_est
+
+    data = _get_sample()
+    sample_moments = _get_sample_moments(data)
+    test = _get_weight_matrix(data, sample_moments, no_moments=3)
+
+    return test
