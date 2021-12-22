@@ -1,8 +1,11 @@
+from os import times_result
 import numpy as np
 from scipy.optimize import dual_annealing
 from auxiliary.helpers_calcmoments import *
+from auxiliary.Model import Model
+from auxiliary.tauchen import approx_markov
 
-def objective_function(sample_moments, weight_matrix, terry, alpha, delta):
+def _objective_func(sample_moments, weight_matrix, terry, alpha, delta):
     """
     """
     f = lambda alpha, delta: ((terry._get_sim_moments(alpha,delta)- sample_moments).T 
@@ -10,14 +13,15 @@ def objective_function(sample_moments, weight_matrix, terry, alpha, delta):
         
     return f
 
-def optimization(optimizer=dual_annealing, obj_func, parameter_space):
-    """
-    """
-    ret = dual_annealing(obj_func, bounds=parameter_space)
+# def _run_optimization(optimizer=dual_annealing, obj_func):
+#     """
+#     """
+#     # additional input: parameter_space
+#     ret = dual_annealing(obj_func, bounds=parameter_space)
 
-    return
+#     pass
 
-def weight_matrix(sample, no_moments):
+def _get_weight_matrix(sample, sample_mom, no_moments):
     """
     Calculates the weight matrix from influence functions with clustering at the firm level.
 
@@ -31,48 +35,78 @@ def weight_matrix(sample, no_moments):
     weight matrix (np.ndarray):     weight matrix of shape (no_moments x no_moments)
 
     """
-    sample_nobs = sample.shape()[0]  # number of year-firm obs
+    sample_nobs = sample.shape[0]  # number of year-firm obs
     
     yearspfirm = get_nyears_per_firm(sample)  # vector with years per firm
     no_firms = len(yearspfirm)
     pos_firms = np.cumsum(yearspfirm)  # to know positions of obs per firm 
-    
-    infl_mat = influence_fct(sample)
+    pos_firms = np.insert(pos_firms, 0, 0) # to ensure subsequent loop starts at beginning
+
+    infl_mat = _get_influence_func(sample, sample_mom)
 
     out = np.zeros((no_moments, no_moments))  # initialization
 
     for i in range(0,no_firms):
         mat_clust = np.ones((yearspfirm[i], yearspfirm[i]))
         out = out + infl_mat[pos_firms[i]:pos_firms[i+1],:].transpose() @ mat_clust @ infl_mat[pos_firms[i]:pos_firms[i+1],:]
+        # print(f'{out=}')
     
-    out = out / (sample_nobs).square()
+    out = out / (np.square(sample_nobs))
 
     return out
 
-def influence_fct(sample):
+def _get_influence_func(sample, sample_mom):
     """
     Calculate the stacked influence function for mean of profitability, mean of inv_rate and variance of profitability.
     
     Args
     ----------
     sample (pandas.DataFrame):  DataFrame with 4 columns: firm, year, profitability, inv_rate
+    sample_mom (numpy.ndarray): array with sample moments
 
     Returns
     -------
     infl_fct (numpy.ndarray):    array (sample_obs x 3) where columns contain the influence functions for each of the moments
     """
-    sample_nobs = sample.shape()[0] # number of year-firm obs
-    sample_mom = calc_moments(sample)
+    sample_nobs = sample.shape[0] # number of year-firm obs
 
-    infl_fct = np.array([np.copy(sample.loc[:,2].values), np.copy(sample.loc[:,3].values), np.copy(sample.loc[:,2].values)])
+    infl_fct = sample[["profitability", "inv_rate", "profitability"]].to_numpy(dtype=float, copy=True)
 
     # Influence function for means: x - E[X]
     infl_fct[:0] = infl_fct[:0] - sample_mom[0]
     infl_fct[:1] = infl_fct[:1] - sample_mom[1]
 
     # Influence function for variance: (x-E[X])^2 - Var[X]
-    infl_fct[:2] = (infl_fct[:2] - sample_mom[0]).square() - sample_mom[2]
+    infl_fct[:2] = np.square((infl_fct[:2] - sample_mom[0])) - sample_mom[2]
 
-    # TODO in MATLAB code: why use demeaned data?
+    # # TODO in MATLAB code: why use demeaned data?
 
     return infl_fct
+
+def _optimization():
+    pass
+
+def _get_sample_moments(data):
+    """
+    """
+    moments = calc_moments(data, DataFrame=True)
+
+    return moments
+
+def _get_sample():
+    """
+    """
+    data = import_data("data/RealData.csv", ["%firm_id","year","profitability","inv_rate"])
+    
+    return data
+
+def get_estimation_results(model):
+
+    # Set-up
+    data = _get_sample()
+    sample_moments = _get_sample_moments(data)
+    weight_mat = _get_weight_matrix(data, sample_moments, no_moments=3)
+
+    f = _objective_func(weight_mat, sample_moments, model, alpha=0.5, delta=0.05)
+    # return parameter_est, se_est, covar_est, sim_moments_est
+    return f

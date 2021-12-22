@@ -21,7 +21,7 @@ def import_data(relative_path, to_keep):
     sourcepath = os.path.join(cwd, relative_path)
 
     data = pd.read_csv(sourcepath, sep=',', header=0, encoding = "ISO-8859-1")
-    data.drop(data.columns.difference(to_keep), 1, inplace=True)
+    data.drop(labels=data.columns.difference(to_keep), axis=1, inplace=True)
 
     data.sort_values(by=["%firm_id"], inplace=True)
 
