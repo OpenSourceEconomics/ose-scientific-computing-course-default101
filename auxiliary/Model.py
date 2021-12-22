@@ -29,7 +29,7 @@ class Model:
         self.precision = approx_param["precision"]
         self.nk = approx_param["size_capital_grid"]
 
-    def _solve_model(self, alpha, delta, renew_a_d_flag=True, verbose=True, print_skip=25): 
+    def _solve_model(self, alpha, delta, renew_a_d_flag=True, verbose=False, print_skip=25): 
         """
             Solves the model.
 
@@ -486,7 +486,6 @@ class Model:
         }
 
         plot_mom_sensitivity((grid_alpha, grid_delta), (x,y), xlabel)
-
 
     def _get_a_d_grids(self, a_bounds, d_bounds, ngrid):
 

@@ -5,21 +5,21 @@ from auxiliary.helpers_calcmoments import *
 from auxiliary.Model import Model
 from auxiliary.tauchen import approx_markov
 
-def _objective_func(sample_moments, weight_matrix, terry, alpha, delta):
+def _objective_func(sample_moments, weight_matrix, terry, sim_param):
     """
     """
-    f = lambda alpha, delta: ((terry._get_sim_moments(alpha,delta)- sample_moments).T 
-        @weight_matrix@(terry._get_sim_moments(alpha,delta)- sample_moments))
+    # dual_annealing needs the function input as a 1D array
+    # x[0]: alpha, x[1]: delta
+    f = lambda x: ((terry._get_sim_moments(x[0],x[1],sim_param)- sample_moments).T @weight_matrix@(terry._get_sim_moments(x[0],x[1],sim_param)- sample_moments))
         
     return f
 
-# def _run_optimization(optimizer=dual_annealing, obj_func):
-#     """
-#     """
-#     # additional input: parameter_space
-#     ret = dual_annealing(obj_func, bounds=parameter_space)
+def _run_optimization(obj_func, parameter_space):
+    """
+    """
+    ret = dual_annealing(obj_func, bounds=parameter_space, maxiter=100)
 
-#     pass
+    return ret
 
 def _get_weight_matrix(sample, sample_mom, no_moments):
     """
@@ -51,6 +51,7 @@ def _get_weight_matrix(sample, sample_mom, no_moments):
         out = out + infl_mat[pos_firms[i]:pos_firms[i+1],:].transpose() @ mat_clust @ infl_mat[pos_firms[i]:pos_firms[i+1],:]
         # print(f'{out=}')
     
+    print(f'{out=}')
     out = out / (np.square(sample_nobs))
 
     return out
@@ -83,9 +84,6 @@ def _get_influence_func(sample, sample_mom):
 
     return infl_fct
 
-def _optimization():
-    pass
-
 def _get_sample_moments(data):
     """
     """
@@ -100,13 +98,29 @@ def _get_sample():
     
     return data
 
-def get_estimation_results(model):
+def _get_covar_est():
+    pass
 
+def _optimization(model, sim_param):
+    """
+    # OPEN: take out parameters of dual_annealing!
+    """
     # Set-up
     data = _get_sample()
     sample_moments = _get_sample_moments(data)
     weight_mat = _get_weight_matrix(data, sample_moments, no_moments=3)
+    f = _objective_func(sample_moments, weight_mat, model, sim_param)
+    bounds=sim_param["bounds_optimizer"]
 
-    f = _objective_func(weight_mat, sample_moments, model, alpha=0.5, delta=0.05)
+    out = _run_optimization(f, bounds)['x']
+    # available keys: ['success', 'status', 'x', 'fun', 'nit', 'nfev', 'njev', 'nhev', 'message']
+    
     # return parameter_est, se_est, covar_est, sim_moments_est
-    return f
+    return out
+
+def get_estimation_results(model, sim_param):
+    """
+    """
+    result = _optimization(model, sim_param)
+    
+    return result

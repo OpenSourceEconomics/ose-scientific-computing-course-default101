@@ -35,7 +35,8 @@ if __name__=='__main__':
         "number_simulations_per_firm" : 1, 
         "number_years_per_firm" : 10, 
         "burnin" : 30, 
-        "seed" : 10082021
+        "seed" : 10082021,
+        "bounds_optimizer": [[0.001,1], [0.001, 0.3]],
     }
 
     visualization_param = {
@@ -52,5 +53,5 @@ if __name__=='__main__':
     # model.visualize_model_sol(alpha, delta, approx_param)
     # model.visualize_mom_sensitivity(visualization_param, sim_param)
 
-    f = get_estimation_results(model)
-    print(f'{f=}')
+    result = get_estimation_results(model, sim_param)
+    print(f'{result=}')
