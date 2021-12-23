@@ -108,6 +108,7 @@ class Sample:
             if 'Singular matrix' in str(e):
                 print("Empirical covariance matrix not invertible. Use identity as weight matrix instead.")
                 out = np.identity(self.no_mom)
+                # Put alternative weight matrix here?
             else:
                 raise
             

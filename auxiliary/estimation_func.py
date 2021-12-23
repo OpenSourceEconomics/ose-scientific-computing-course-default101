@@ -56,6 +56,7 @@ def _create_covar_est(sample, alpha, delta, nsim):
     aux1 = grad.transpose() @ sample.weight_mat @ grad
 
     try:
+        # Nicht invertierern, sondern GLS lösen.
         aux2 = inv(aux1) @ grad.transpose()
         out = aux2 @ sample.weight_mat @ covm @ sample.weight_mat.transpose() @ aux2.transpose()
 
