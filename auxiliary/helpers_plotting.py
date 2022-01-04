@@ -17,6 +17,7 @@ def line_plot(x, df_y, nz, xlabel, ylabel, title):
 
 def plot_mom_sensitivity(grids, moments, xlabel, \
                     labels=["mean profitability", "mean inv rate", "var profitability"],\
+                    colors=["red", "green", "blue"],\
                     title="Moment sensitivities to alpha and delta", nmoments=3):
     
     fig, axs = plt.subplots(nrows=nmoments,ncols=2, sharex='col')
@@ -24,8 +25,8 @@ def plot_mom_sensitivity(grids, moments, xlabel, \
     fig.suptitle(title)
 
     for i in range(nmoments):
-        axs[i,0].plot(grids[0], moments[0][:,i], label=labels[i])
-        axs[i,1].plot(grids[1], moments[1][:,i])
+        axs[i,0].plot(grids[0], moments[0][:,i], color=colors[i], label=labels[i])
+        axs[i,1].plot(grids[1], moments[1][:,i], color=colors[i])
         axs[i,0].legend()
 
     axs[i,0].set_xlabel('{}'.format(xlabel['alpha']))

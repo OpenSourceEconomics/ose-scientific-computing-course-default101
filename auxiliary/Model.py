@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 from auxiliary.helpers_plotting import line_plot, threedim_plot, plot_mom_sensitivity
 from auxiliary.helpers_calcmoments import calc_moments
-from auxiliary.helpers_general import gridlookup
+from auxiliary.helpers_general import gridlookup, gridlookup_nb
 
 class Model:
     """
@@ -82,7 +82,7 @@ class Model:
             print("Failed to converge!")
 
         if verbose and i < self.max_iter:
-            print("\nConverged in", i, " iterations.")
+            print("\nConverged in", i, " iterations with error ", solerr)
 
 
         return value_func, policy_func
@@ -90,14 +90,13 @@ class Model:
     def _get_shock_stat_distr(self):
         # At time 1, for each firm, draws an initial z process from the stationary distribution of z (stationary means 10000 draws)
         pi00 = np.linalg.matrix_power(self.shock_transition, 10000)
-        pi0 = pi00[0,0:self.nz-1]
+        pi0 = pi00[0,:-1]
 
         # cumulative distribution function of the stationary distribution
-        cumpi0 = np.cumsum(pi0) # here the original np.cumsum works, since it is a 1d array
+        shock_stat_distr = np.cumsum(pi0)
+        shock_cum_transition = np.cumsum(self.shock_transition, axis=1)
 
-        cumpiz = np.cumsum(self.shock_transition, axis=1)
-
-        return cumpi0, cumpiz
+        return shock_stat_distr, shock_cum_transition
 
     def _get_shock_series(self, sim_param):
 
@@ -120,20 +119,17 @@ class Model:
         runif = np.random.uniform(0,1, size=(NyearsPerFirmsburn, M))
 
         # Draw and store the initial values of z
+        izsim[0,:] = np.sum(np.add.outer(runif[0,:], -self.shock_stat_distr) >= 0, axis=1)
 
-        for i in range(0, M):
-            izsim[0,i] = np.sum(((runif[0, i] - self.shock_stat_distr) >= 0))
-            zsim[0,i]  = self.shock_grid[int(izsim[0,i])]
 
         # Simulate the process for all the other z
-        NyearsPerFirms1 = NyearsPerFirmsburn-1
-        for i in range(0, M):
-            for t in range(1, NyearsPerFirmsburn):
-                cumpizi = self.shock_cum_transition[int(izsim[t-1, i]), :]
-                izsim[t, i] = np.sum(((runif[t,i] - cumpizi) >= 0))
-                zsim[t, i] = self.shock_grid[int(izsim[t, i])]
+        for t in range(1,NyearsPerFirmsburn):
+            shock_cum_transition_t = self.shock_cum_transition[izsim[t-1, :], :]
+            izsim[t,:] = np.sum((runif[t,:] - shock_cum_transition_t.T) >= 0, axis=0)
 
         # print(zsim, izsim)
+
+        zsim = self.shock_grid[izsim]
 
         return zsim, izsim
 
@@ -143,13 +139,15 @@ class Model:
         _, policy_func = self._solve_model(alpha, delta)
         start_capital = self._get_start_capital()
 
-        SimData = self._run_sim(alpha, delta, policy_func, start_capital, shock_series, shock_series_indices, sim_param)
+        ksim = self._run_sim(alpha, delta, policy_func, start_capital, shock_series, shock_series_indices, sim_param)
         
+        SimData = self._collect_sim_data(ksim, sim_param, shock_series, alpha, delta)
+
         return SimData
 
     def _get_start_capital(self):
 
-        start_capital = (self.capital_grid[0] + self.capital_grid[self.nk-1])/2
+        start_capital = (self.capital_grid[0] + self.capital_grid[-1])/2
 
         return start_capital
 
@@ -198,17 +196,10 @@ class Model:
         # Total time for the loop
         NyearsPerFirmsburn = nyears + burnin
 
-
         # storage variables       
         ksim = np.zeros((NyearsPerFirmsburn+1, nfirms))
         ksim[0, 0:nfirms] = start_capital #do all firms start with the same capital? check def of k0val and terrys kvec
 
-        ysim = np.zeros((NyearsPerFirmsburn, nfirms))
-        esim = np.zeros((NyearsPerFirmsburn, nfirms))
-        profitsim = np.zeros((NyearsPerFirmsburn, nfirms))
-        profitabilitysim = np.zeros((NyearsPerFirmsburn, nfirms))
-        investmentrate = np.zeros((NyearsPerFirmsburn, nfirms))
-        
         # Simulate panel of firms
         # double loop on time and firm
         for i in range(0, nfirms):
@@ -220,20 +211,44 @@ class Model:
                 kfval = policy_func[int(iz)-1, iloc]*weight + policy_func[int(iz)-1, iloc+1]*(1-weight)
 
                 ksim[t+1, i] = kfval
+                #
 
-                ysim[t, i] = shock_series[t, i-1]*(kval**alpha)
-                profitabilitysim[t, i] = ysim[t, i]/kval
-                esim[t, i] = max(kfval - (ysim[t, i] + (1-delta)*kval),  0)
-                investmentrate[t, i] = (kfval - (1-delta)*kval)/kval
-                if (esim[t, i]>0):
-                    esim[t, i] = esim[t, i]*(1+self.gamma)
-                    profitsim[t, i] = (1+self.gamma)*(ysim[t, i] + (1-delta)*kval - kfval)
-                else:
-                    profitsim[t, i] = ysim[t, i] + (1-delta)*kval - kfval
+        for t in range(NyearsPerFirmsburn):
+            kval = ksim[t,:]
+            iz = shock_series[t,:]
+            iloc = gridlookup_nb(self.nk, self.capital_grid, kval)
+            weight = (self.capital_grid[iloc+1] - kval) / ((self.capital_grid[iloc+1]) - self.capital_grid[iloc])
 
-                # print(kval, kfval)
+            kfval = policy_func[int(iz)-1, iloc]*weight + policy_func[int(iz)-1, iloc+1]*(1-weight)
+
+            ksim[t+1, :] = kfval
+        return ksim
+
+    def _collect_sim_data(self, ksim, sim_param, shock_series, alpha, delta):
 
         
+        nfirms = sim_param["number_firms"]
+        nyears = sim_param["number_years_per_firm"]
+        nsim = sim_param["number_simulations_per_firm"]
+        burnin = sim_param["burnin"]
+        M = nfirms*nsim
+
+        # Total time for the loop
+        NyearsPerFirmsburn = nyears + burnin
+        
+        ysim = np.zeros((NyearsPerFirmsburn, nfirms))
+        esim = np.zeros((NyearsPerFirmsburn, nfirms))
+        profitsim = np.zeros((NyearsPerFirmsburn, nfirms))
+        profitabilitysim = np.zeros((NyearsPerFirmsburn, nfirms))
+        investmentrate = np.zeros((NyearsPerFirmsburn, nfirms))
+        
+        ysim = shock_series*ksim[:-1,:]**alpha
+        profitabilitysim = ysim/ksim[:-1,:]
+        investmentrate = ksim[1:,:] / ksim[:-1,:] - (1 - delta)
+        profitsim = ysim - ksim[1:,:] + (1 - delta) * ksim[:-1,:]
+        profitsim[profitsim < 0] = (1 + self.gamma) * profitsim[profitsim < 0]
+        esim[profitsim < 0] = -profitsim[profitsim < 0]
+
                     
         k = 8 # number of columns in Simdata
         SimData = np.zeros((nfirms*nyears, k)) # Allocate final panel
@@ -254,31 +269,8 @@ class Model:
 
                 ), axis = 1)
             )
-                    
+
         return SimData
-
-    def _collect_sim_data(self):
-        k = 8 # number of columns in Simdata
-        SimData = np.zeros((NFirms*NYearsPerFirms, k)) # Allocate final panel
-
-        # Fill final panel (see description of function)
-        for id_n in range(0, NFirms):
-            SimData[(id_n*NYearsPerFirms):(id_n+1)*NYearsPerFirms, ] = (
-                np.concatenate((
-
-                np.expand_dims(np.repeat(np.array([id_n]), NYearsPerFirms), axis = 1),
-                np.expand_dims(np.arange(0, NYearsPerFirms), axis = 1),
-                np.expand_dims(profitabilitysim[(burnin):(burnin+NYearsPerFirms), id_n], axis = 1),
-                np.expand_dims(investmentrate[(burnin):(burnin+NYearsPerFirms), id_n], axis = 1),
-                np.expand_dims(esim[(burnin):(burnin+NYearsPerFirms), id_n], axis = 1),
-                np.expand_dims(ysim[(burnin):(burnin+NYearsPerFirms), id_n], axis = 1),
-                np.expand_dims(ksim[(burnin):(burnin+NYearsPerFirms), id_n], axis = 1),
-                np.expand_dims(zsim[(burnin):(burnin+NYearsPerFirms), id_n], axis = 1)
-
-                ), axis = 1)
-            )
-
-        pass
 
     def _create_shock_grid(self, rho, sigma, m=3, n=7):
         """

@@ -1,8 +1,7 @@
-from numba import jit
-import numpy as np
+from numba import jit, guvectorize, float64
 
 @jit(nopython=True)
-def gridlookup(n, grid, valplace): #Is there a np function for this? 
+def gridlookup(n, grid, valplace):
     """Check in which interval/ capital state valplace is"""
     
     ilow = 1
@@ -12,8 +11,8 @@ def gridlookup(n, grid, valplace): #Is there a np function for this?
 
     while (distance > 1):
         
-        inow = np.floor((ilow+ihigh)/2)
-        valnow = grid[int(inow)]
+        inow = int((ilow+ihigh)/2)
+        valnow = grid[inow]
 
         # The strict inequality here ensures that grid[iloc] is less than or equal to valplace
         if (valnow > valplace):
@@ -25,4 +24,31 @@ def gridlookup(n, grid, valplace): #Is there a np function for this?
     
     iloc = ilow
     
-    return int(iloc)
+    return iloc
+
+# @guvectorize([(float64, float64[:], float64[:], float64[:])], '(),(n),(m)->(m)',nopython=True)
+def gridlookup_nb(n, grid, valplace):
+    """Check in which interval/ capital state valplace is"""
+    
+    ilow = 1
+    ihigh = n-1
+
+    distance = 2
+
+    while (distance > 1):
+        
+        inow = int((ilow+ihigh)/2)
+        valnow = grid[inow]
+
+        # The strict inequality here ensures that grid[iloc] is less than or equal to valplace
+        if (valnow > valplace):
+            ihigh = inow
+        else:
+            ilow = inow
+
+        distance = ihigh - ilow
+    
+    iloc = ilow
+
+    return iloc
+    
