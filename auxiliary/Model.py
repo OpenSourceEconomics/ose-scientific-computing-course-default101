@@ -133,10 +133,10 @@ class Model:
 
         return zsim, izsim
 
-    def _simulate_model(self, alpha, delta, sim_param):
+    def _simulate_model(self, alpha, delta, sim_param, verbose=True):
 
         shock_series, shock_series_indices = self._get_shock_series(sim_param)
-        _, policy_func = self._solve_model(alpha, delta)
+        _, policy_func = self._solve_model(alpha, delta, verbose=verbose)
         start_capital = self._get_start_capital()
 
         ksim = self._run_sim(alpha, delta, policy_func, start_capital, shock_series, shock_series_indices, sim_param)
@@ -200,28 +200,17 @@ class Model:
         ksim = np.zeros((NyearsPerFirmsburn+1, nfirms))
         ksim[0, 0:nfirms] = start_capital #do all firms start with the same capital? check def of k0val and terrys kvec
 
-        # Simulate panel of firms
-        # double loop on time and firm
-        for i in range(0, nfirms):
-            for t in range(0, NyearsPerFirmsburn):
-                kval = ksim[t, i]
-                iz = shock_series_indices[t, i]
-                iloc = gridlookup(self.nk, self.capital_grid, kval)
-                weight = (self.capital_grid[iloc+1] - kval) / ((self.capital_grid[iloc+1]) - self.capital_grid[iloc])
-                kfval = policy_func[int(iz)-1, iloc]*weight + policy_func[int(iz)-1, iloc+1]*(1-weight)
-
-                ksim[t+1, i] = kfval
-                #
 
         for t in range(NyearsPerFirmsburn):
             kval = ksim[t,:]
-            iz = shock_series[t,:]
+            iz = shock_series_indices[t,:]
             iloc = gridlookup_nb(self.nk, self.capital_grid, kval)
             weight = (self.capital_grid[iloc+1] - kval) / ((self.capital_grid[iloc+1]) - self.capital_grid[iloc])
 
-            kfval = policy_func[int(iz)-1, iloc]*weight + policy_func[int(iz)-1, iloc+1]*(1-weight)
+            kfval = policy_func[iz-1, iloc]*weight + policy_func[iz-1, iloc+1]*(1-weight)
 
             ksim[t+1, :] = kfval
+
         return ksim
 
     def _collect_sim_data(self, ksim, sim_param, shock_series, alpha, delta):
