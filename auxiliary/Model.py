@@ -210,7 +210,7 @@ class Model:
             kfval = policy_func[iz-1, iloc]*weight + policy_func[iz-1, iloc+1]*(1-weight)
 
             ksim[t+1, :] = kfval
-
+            
         return ksim
 
     def _collect_sim_data(self, ksim, sim_param, shock_series, alpha, delta):

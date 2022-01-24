@@ -17,7 +17,7 @@ if __name__=='__main__':
     deep_param = {
         "beta" : 0.96,
         "gamma": 0.05,
-        "rho" : 0.7, 
+        "rho" : 0.75, 
         "sigma" : 0.15
     }
 
@@ -27,23 +27,23 @@ if __name__=='__main__':
     }
 
     approx_param = {
-        "max_iter" : 30, 
-        "precision" : 1e-3, 
+        "max_iter" : 1000, 
+        "precision" : 1e-5, 
         "size_capital_grid" : 101, 
     }
 
     sim_param = {
-        "number_firms" : 2, 
+        "number_firms" : 10, 
         "number_simulations_per_firm" : 1, 
         "number_years_per_firm" : 10, 
-        "burnin" : 30, 
+        "burnin" : 200, 
         "seed" : 10082021,
         "bounds_optimizer": [[0.001,1], [0.001, 0.3]],
     }
 
     visualization_param = {
         "alpha grid bounds" : (0.35, 0.65), 
-        "delta grid bounds" : (0.01,0.1),
+        "delta grid bounds" : (0.03,0.07),
         "fixed alpha" : 0.5, 
         "fixed delta" : 0.05, 
         "parameter grid size" : 15
@@ -60,12 +60,12 @@ if __name__=='__main__':
     # model._solve_model(alpha, delta, approx_param)
 
     # model.visualize_model_sol(alpha, delta, approx_param)
-    # model.visualize_mom_sensitivity(visualization_param, sim_param)
+    model.visualize_mom_sensitivity(visualization_param, sim_param)
 
     # est, sim_mom = get_estimation_results(model, sim_param)
     # print(f'{est=}')
     # print(f'{sim_mom=}')
 
-    test1, test2 = get_estimation_results(sample, model, sim_param)
-    print(f'{test1=}')
-    print(f'{test2=}')
+    # test1, test2 = get_estimation_results(sample, model, sim_param)
+    # print(f'{test1=}')
+    # print(f'{test2=}')

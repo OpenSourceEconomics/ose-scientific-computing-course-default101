@@ -1,5 +1,5 @@
 from numba import jit, guvectorize, float64
-from numpy import ones
+import numpy as np
 
 @jit(nopython=True)
 def gridlookup(n, grid, valplace):
@@ -28,14 +28,15 @@ def gridlookup(n, grid, valplace):
     return iloc
 
 # @guvectorize([(float64, float64[:], float64[:], float64[:])], '(),(n),(m)->(m)',nopython=True)
+# @jit(nopython=True)
 def gridlookup_nb(n, grid, valplace):
     """Check in which interval/ capital state valplace is"""
     
     ilow = 1
     ihigh = n-1
 
-    inow = int((ilow+ihigh)/2) * ones(len(valplace), dtype=int)
-    distance = 2 * ones(len(valplace), dtype=int)
+    inow = int((ilow+ihigh)/2) * np.ones(len(valplace), dtype=int)
+    distance = 2 * np.ones(len(valplace), dtype=int)
 
     while (distance > 1).any():
 
@@ -51,4 +52,31 @@ def gridlookup_nb(n, grid, valplace):
         inow = ((ilow+ihigh)/2).astype(int)
 
     return ilow
+
+
+
+if __name__=='__main__':
+
+    print("Test session")
+
+    from timeit import timeit
+
+    sample_size = 20
+    n = 101
+    dummy_grid = np.linspace(0,1,n)
+    dummy_vals = np.random.random(sample_size)
+    iloc = np.empty(sample_size)
+
+    @jit(nopython=True)
+    def gridlookup_test(n, grid, vals, iloc):
+
+        for i,x  in enumerate(vals):
+            iloc[i] = gridlookup(n, grid, x)
+
+        return iloc
+
+    t = timeit('gridlookup_test(n,dummy_grid,dummy_vals, iloc)', 'from __main__ import gridlookup_test, n, dummy_grid, dummy_vals, iloc', number=100000)
+    print(t)
+    t = timeit('gridlookup_nb(n,dummy_grid,dummy_vals)', 'from __main__ import gridlookup_nb, n, dummy_grid, dummy_vals',number=100000)
+    print(t)
     
