@@ -93,7 +93,7 @@ class Sample:
             out = out + infl_mat[pos_firms[i]:pos_firms[i+1],:].transpose() @ mat_clust @ infl_mat[pos_firms[i]:pos_firms[i+1],:]
             # print(f'{out=}')
         
-        out = out / (np.square(sample_nobs))
+        out = out / sample_nobs**2
 
         return out
     

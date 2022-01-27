@@ -100,6 +100,7 @@ class Model:
 
     def _get_shock_series(self, sim_param):
 
+        np.random.seed(sim_param["seed"])
 
         nfirms = sim_param["number_firms"]
         nyears = sim_param["number_years_per_firm"]
@@ -175,16 +176,8 @@ class Model:
             ** col7: k
             ** col8: z
         """
-        # Solve the model for the instance terry
-        # V, polind, pol, equity_iss = solve_model_notreshaped(terry)
-
-
-        # Reshape
+                # Reshape
         policy_func = np.reshape(policy_func, (self.nz, self.nk))
-
-        # Set seed
-        np.random.seed(sim_param["seed"])
-
         
         nfirms = sim_param["number_firms"]
         nyears = sim_param["number_years_per_firm"]
@@ -197,8 +190,8 @@ class Model:
         NyearsPerFirmsburn = nyears + burnin
 
         # storage variables       
-        ksim = np.zeros((NyearsPerFirmsburn+1, nfirms))
-        ksim[0, 0:nfirms] = start_capital #do all firms start with the same capital? check def of k0val and terrys kvec
+        ksim = np.zeros((NyearsPerFirmsburn+1, M))
+        ksim[0, 0:M] = start_capital #do all firms start with the same capital? check def of k0val and terrys kvec
 
 
         for t in range(NyearsPerFirmsburn):
@@ -225,11 +218,11 @@ class Model:
         # Total time for the loop
         NyearsPerFirmsburn = nyears + burnin
         
-        ysim = np.zeros((NyearsPerFirmsburn, nfirms))
-        esim = np.zeros((NyearsPerFirmsburn, nfirms))
-        profitsim = np.zeros((NyearsPerFirmsburn, nfirms))
-        profitabilitysim = np.zeros((NyearsPerFirmsburn, nfirms))
-        investmentrate = np.zeros((NyearsPerFirmsburn, nfirms))
+        ysim = np.zeros((NyearsPerFirmsburn, M))
+        esim = np.zeros((NyearsPerFirmsburn, M))
+        profitsim = np.zeros((NyearsPerFirmsburn, M))
+        profitabilitysim = np.zeros((NyearsPerFirmsburn, M))
+        investmentrate = np.zeros((NyearsPerFirmsburn, M))
         
         ysim = shock_series*ksim[:-1,:]**alpha
         profitabilitysim = ysim/ksim[:-1,:]
@@ -239,26 +232,17 @@ class Model:
         esim[profitsim < 0] = -profitsim[profitsim < 0]
 
                     
-        k = 8 # number of columns in Simdata
-        SimData = np.zeros((nfirms*nyears, k)) # Allocate final panel
-
-        # Fill final panel (see description of function)
-        for id_n in range(0, nfirms):
-            SimData[(id_n*nyears):(id_n+1)*nyears, ] = (
-                np.concatenate((
-
-                np.expand_dims(np.repeat(np.array([id_n]), nyears), axis = 1),
-                np.expand_dims(np.arange(0, nyears), axis = 1),
-                np.expand_dims(profitabilitysim[(burnin):(burnin+nyears), id_n], axis = 1),
-                np.expand_dims(investmentrate[(burnin):(burnin+nyears), id_n], axis = 1),
-                np.expand_dims(esim[(burnin):(burnin+nyears), id_n], axis = 1),
-                np.expand_dims(ysim[(burnin):(burnin+nyears), id_n], axis = 1),
-                np.expand_dims(ksim[(burnin):(burnin+nyears), id_n], axis = 1),
-                np.expand_dims(shock_series[(burnin):(burnin+nyears), id_n], axis = 1)
-
-                ), axis = 1)
-            )
-
+        # Allocate final panel
+        SimData = np.vstack( (\
+                np.repeat(np.arange(M), nyears),
+                np.tile(np.arange(nyears), M),
+                profitabilitysim[burnin:burnin+nyears,:].T.flatten(),
+                investmentrate[burnin:burnin+nyears,:].T.flatten(),
+                esim[burnin:burnin+nyears,:].T.flatten(),
+                ysim[burnin:burnin+nyears,:].T.flatten(),
+                ksim[burnin:burnin+nyears,:].T.flatten(),
+                shock_series[burnin:burnin+nyears,:].T.flatten()
+                )).T
         return SimData
 
     def _create_shock_grid(self, rho, sigma, m=3, n=7):
@@ -377,7 +361,13 @@ class Model:
 
         sim_data = self._simulate_model(alpha, delta, sim_param)
 
-        moments = calc_moments(sim_data)
+        xx = sim_param["number_firms"]*sim_param["number_years_per_firm"]
+
+        moments = calc_moments(sim_data[0:xx,:])/sim_param["number_simulations_per_firm"]
+        for s in range(1,sim_param["number_simulations_per_firm"]):
+            moments = moments + \
+                calc_moments(sim_data[xx*s:xx*(s+1),:])/sim_param["number_simulations_per_firm"]
+
         return moments
 
     def _get_objective_func(self, approx_param):
@@ -478,6 +468,12 @@ class Model:
     def test_model_solve(self, alpha, delta):
         
         self.capital_grid = self._create_capital_grid(alpha, delta)
+
+    def test_model_sim(self, alpha, delta, sim_param):
+
+        out = self._get_sim_moments(alpha, delta, sim_param)
+
+        return out
 
 
 if __name__=='__main__':

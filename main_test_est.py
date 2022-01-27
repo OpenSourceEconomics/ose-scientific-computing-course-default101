@@ -11,8 +11,8 @@ if __name__=='__main__':
     seed = 10082021
     np.random.seed(seed)
 
-    # alpha = 0.5
-    # delta = 0.05
+    alpha = 0.5
+    delta = 0.05
 
     deep_param = {
         "beta" : 0.96,
@@ -34,7 +34,7 @@ if __name__=='__main__':
 
     sim_param = {
         "number_firms" : 3, 
-        "number_simulations_per_firm" : 1, 
+        "number_simulations_per_firm" : 3, 
         "number_years_per_firm" : 10, 
         "burnin" : 200, 
         "seed" : 10082021,
@@ -55,7 +55,7 @@ if __name__=='__main__':
     }
 
     model = Model(deep_param, discretization_param, approx_param)
-    sample = Sample(mom_param)
+    # sample = Sample(mom_param)
 
     # model._solve_model(alpha, delta, approx_param)
 
@@ -64,9 +64,11 @@ if __name__=='__main__':
 
     # print(sample.sample_mom)
 
-    est, sim_mom = get_estimation_results(sample, model, sim_param)
-    print(f'{est=}')
-    print(f'{sim_mom=}')
+    print(model.test_model_sim(alpha, delta, sim_param))
+
+    # est, sim_mom = get_estimation_results(sample, model, sim_param)
+    # print(f'{est=}')
+    # print(f'{sim_mom=}')
 
     # test1, test2 = get_estimation_results(sample, model, sim_param)
     # print(f'{test1=}')
