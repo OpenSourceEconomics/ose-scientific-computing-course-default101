@@ -69,7 +69,7 @@ def calc_moments(data, DataFrame=False):
     if DataFrame == True: # If input is a DataFrame
         moments[0] = data["profitability"].mean()
         moments[1] = data["inv_rate"].mean()
-        moments[2] = data["profitability"].var()
+        moments[2] = data["profitability_adj"].var()
 
     else:
         moments[0] = data[:,2].mean()
@@ -96,7 +96,7 @@ def add_deviations_from_sample_mean(data):
 
     variables = ["profitability", "inv_rate"]
     for var in variables:
-        data_merged[var + "_adj"] = data_merged[var] - data_merged[var + "_firmmean"] + data_merged[var].mean()
+        data_merged[var + "_adj"] = data_merged[var] - data_merged[var + "_firmmean"] # + data_merged[var].mean()
 
     data_merged.drop(list(data_merged.filter(regex = '_firmmean')), axis=1, inplace=True)
 

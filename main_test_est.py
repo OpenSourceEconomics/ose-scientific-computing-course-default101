@@ -1,10 +1,10 @@
 import numpy as np
+import time
 from auxiliary.Model import Model
 from auxiliary.Sample import Sample
 from auxiliary.tauchen import approx_markov
 from auxiliary.estimation_func import *
 from auxiliary.helpers_calcmoments import import_data
-from numpy.linalg import inv
 
 if __name__=='__main__':
 
@@ -13,7 +13,7 @@ if __name__=='__main__':
 
     # alpha = 0.5
     # delta = 0.05
-    
+
     deep_param = {
         "beta" : 0.96,
         "gamma": 0.05,
@@ -33,7 +33,7 @@ if __name__=='__main__':
     }
 
     sim_param = {
-        "number_firms" : 10, 
+        "number_firms" : 3, 
         "number_simulations_per_firm" : 1, 
         "number_years_per_firm" : 10, 
         "burnin" : 200, 
@@ -46,7 +46,7 @@ if __name__=='__main__':
         "delta grid bounds" : (0.03,0.07),
         "fixed alpha" : 0.5, 
         "fixed delta" : 0.05, 
-        "parameter grid size" : 15
+        "parameter grid size" : 20
     }
 
     mom_param = {
@@ -60,11 +60,13 @@ if __name__=='__main__':
     # model._solve_model(alpha, delta, approx_param)
 
     # model.visualize_model_sol(alpha, delta, approx_param)
-    model.visualize_mom_sensitivity(visualization_param, sim_param)
+    # model.visualize_mom_sensitivity(visualization_param, sim_param)
 
-    # est, sim_mom = get_estimation_results(model, sim_param)
-    # print(f'{est=}')
-    # print(f'{sim_mom=}')
+    # print(sample.sample_mom)
+
+    est, sim_mom = get_estimation_results(sample, model, sim_param)
+    print(f'{est=}')
+    print(f'{sim_mom=}')
 
     # test1, test2 = get_estimation_results(sample, model, sim_param)
     # print(f'{test1=}')

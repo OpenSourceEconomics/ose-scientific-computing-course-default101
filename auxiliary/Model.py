@@ -16,7 +16,7 @@ class Model:
         self.beta = deep_param["beta"]
         self.gamma = deep_param["gamma"]
         self.r_inv = self.beta/(1-self.beta) 
-
+        
         self.nz = discretization_param["size_shock_grid"]
         self.shock_grid, self.shock_transition = self._create_shock_grid(
             rho=deep_param["rho"],
@@ -29,7 +29,7 @@ class Model:
         self.precision = approx_param["precision"]
         self.nk = approx_param["size_capital_grid"]
 
-    def _solve_model(self, alpha, delta, renew_a_d_flag=True, verbose=False, print_skip=25): 
+    def _solve_model(self, alpha, delta, renew_a_d_flag=True, verbose=False, print_skip=250): 
         """
             Solves the model.
 

@@ -23,8 +23,9 @@ class Sample:
         """
         """
         data = import_data("data/RealData.csv", ["%firm_id","year","profitability","inv_rate"])
+        data_demeaned = add_deviations_from_sample_mean(data)
     
-        return data
+        return data_demeaned
 
     def _get_sample_moments(self):
         """
@@ -46,16 +47,15 @@ class Sample:
         -------
         infl_fct (numpy.ndarray):    array (sample_obs x 3) where columns contain the influence functions for each of the moments
         """
-        sample_nobs = self.sample.shape[0] # number of year-firm obs
 
-        infl_fct = self.sample[["profitability", "inv_rate", "profitability"]].to_numpy(dtype=float, copy=True)
+        infl_fct = self.sample[["profitability", "inv_rate", "profitability_adj"]].to_numpy(dtype=float, copy=True)
 
         # Influence function for means: x - E[X]
-        infl_fct[:0] = infl_fct[:0] - self.sample_mom[0]
-        infl_fct[:1] = infl_fct[:1] - self.sample_mom[1]
+        infl_fct[:,0] = infl_fct[:,0] - self.sample_mom[0]
+        infl_fct[:,1] = infl_fct[:,1] - self.sample_mom[1]
 
         # Influence function for variance: (x-E[X])^2 - Var[X]
-        infl_fct[:2] = np.square((infl_fct[:2] - self.sample_mom[0])) - self.sample_mom[2]
+        infl_fct[:,2] = np.square((infl_fct[:,2] - infl_fct[:,2].mean() )) - self.sample_mom[2]
 
         # # TODO in MATLAB code: why use demeaned data?
 
@@ -87,7 +87,8 @@ class Sample:
 
         out = np.zeros((self.no_mom, self.no_mom))  # initialization
 
-        for i in range(0,no_firms):
+        # Clustering of influence functions over firms
+        for i in range(no_firms):
             mat_clust = np.ones((yearspfirm[i], yearspfirm[i]))
             out = out + infl_mat[pos_firms[i]:pos_firms[i+1],:].transpose() @ mat_clust @ infl_mat[pos_firms[i]:pos_firms[i+1],:]
             # print(f'{out=}')

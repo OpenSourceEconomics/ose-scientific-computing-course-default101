@@ -151,19 +151,19 @@ def _get_covar_est():
 def get_estimation_results(model, sim_param):
     """
     """
-    # result = _optimization(model, sim_param)
+    result = _optimization(model, sim_param)
 
-    # final_est = result['x']
-    # alpha_est = final_est[0]
-    # delta_est = final_est[1]
+    final_est = result['x']
+    alpha_est = final_est[0]
+    delta_est = final_est[1]
 
-    # sim_moments_est = _get_sim_moments_est(model, alpha_est, delta_est, sim_param)
+    sim_moments_est = _get_sim_moments_est(model, alpha_est, delta_est, sim_param)
 
+    return final_est, sim_moments_est
     # # return parameter_est, se_est, covar_est, sim_moments_est
-    # return final_est, sim_moments_est
 
-    data = _get_sample()
-    sample_moments = _get_sample_moments(data)
-    test = _get_weight_matrix(data, sample_moments, no_moments=3)
+    # data = _get_sample()
+    # sample_moments = _get_sample_moments(data)
+    # test = _get_weight_matrix(data, sample_moments, no_moments=3)
 
-    return test
+    # return test
