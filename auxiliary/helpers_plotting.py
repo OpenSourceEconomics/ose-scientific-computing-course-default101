@@ -1,7 +1,9 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.axes3d import Axes3D # for 3d plots
 from matplotlib import cm # for 3d plots
+import seaborn as sns
 import numpy as np
+import pandas as pd
 
 def line_plot(x, df_y, nz, xlabel, ylabel, title):
     
@@ -15,12 +17,13 @@ def line_plot(x, df_y, nz, xlabel, ylabel, title):
     ax.legend()
     plt.show()
 
+
 def plot_mom_sensitivity(grids, moments, xlabel, \
                     labels=["mean profitability", "mean inv rate", "var profitability"],\
                     colors=["red", "green", "blue"],\
                     title="Moment sensitivities to alpha and delta", nmoments=3):
     
-    fig, axs = plt.subplots(nrows=nmoments,ncols=2, sharex='col')
+    fig, axs = plt.subplots(nrows=nmoments,ncols=2, sharex='col', figsize=(8,6))
 
     fig.suptitle(title)
 
@@ -33,6 +36,7 @@ def plot_mom_sensitivity(grids, moments, xlabel, \
     axs[i,1].set_xlabel('{}'.format(xlabel['delta']))
 
     plt.show()
+
 
 def threedim_plot(x_grid,y_grid,z,xlabel,ylabel,zlabel,title):
     x, y = np.meshgrid(x_grid, y_grid)
@@ -49,4 +53,33 @@ def threedim_plot(x_grid,y_grid,z,xlabel,ylabel,zlabel,title):
     ax.set_xlabel('{}'.format(xlabel))
     ax.set_zlabel('{}'.format(zlabel))
     ax.set_title(title)
+    plt.show()
+
+
+def visualize_model_fit(sample, model, alpha, delta, sim_param):
+    """
+    """
+    size = {}
+    final_sim = model._simulate_model(alpha, delta, sim_param)
+    final_sim_data = pd.DataFrame(data=final_sim[:,2:4],columns=["profitability", "inv_rate"])
+    size['model'] = final_sim_data.shape[0]
+
+    data_orig = sample._get_sample()[ ['profitability', 'inv_rate']].copy()
+    size['data'] = data_orig.shape[0]
+
+    # Add type for using seaborns boxplot method "hue"
+    final_sim_data['type'] = f'model, N: {size["model"]}'
+    data_orig['type'] = f'data, N: {size["data"]}'
+
+    # data needs to be in long form for grouped seaborn boxplots
+    final_sim_data = pd.melt(final_sim_data, id_vars=['type'], value_vars=['profitability', 'inv_rate'])
+    data_orig = pd.melt(data_orig, id_vars=['type'], value_vars=['profitability', 'inv_rate'])
+    to_plot = data_orig.append(final_sim_data, ignore_index=True)
+
+    fig,ax = plt.subplots(figsize=(5, 6))
+    ax.legend([f'data, N: {size["data"]}', f'model, N: {size["model"]}'])
+    ax = sns.boxplot(x="variable", y="value", hue="type", width=0.3, data=to_plot, whis=0.4, showfliers=False, showmeans=True)
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+
     plt.show()

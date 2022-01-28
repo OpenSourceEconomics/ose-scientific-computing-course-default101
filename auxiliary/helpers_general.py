@@ -32,7 +32,7 @@ def gridlookup(n, grid, valplace):
 def gridlookup_nb(n, grid, valplace):
     """Check in which interval/ capital state valplace is"""
     
-    ilow = 1
+    ilow = 0 # prev 1
     ihigh = n-1
 
     inow = int((ilow+ihigh)/2) * np.ones(len(valplace), dtype=int)

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from auxiliary.helpers_plotting import line_plot, threedim_plot, plot_mom_sensitivity
@@ -198,17 +199,47 @@ class Model:
             kval = ksim[t,:]
             iz = shock_series_indices[t,:]
             iloc = gridlookup_nb(self.nk, self.capital_grid, kval)
-            weight = (self.capital_grid[iloc+1] - kval) / ((self.capital_grid[iloc+1]) - self.capital_grid[iloc])
+            weight = (self.capital_grid[iloc+1] - kval) / (self.capital_grid[iloc+1] - self.capital_grid[iloc])
+            weight [weight > 1] = 1
+            # tmp = (kval >= self.capital_grid[iloc])
+            # if not tmp.all():
+            #     print(t)
+            #     df = pd.DataFrame(np.vstack((tmp, kval, self.capital_grid[iloc], iloc))).transpose()
+            #     df.rename(columns={list(df)[0]: 'true'}, inplace=True)
+            #     print(df[ df['true'] < 1 ])
 
             kfval = policy_func[iz-1, iloc]*weight + policy_func[iz-1, iloc+1]*(1-weight)
 
             ksim[t+1, :] = kfval
-            
+
         return ksim
 
-    def _collect_sim_data(self, ksim, sim_param, shock_series, alpha, delta):
 
-        
+    def _collect_sim_data(self, ksim, sim_param, shock_series, alpha, delta):
+        """
+            Simulates a panel.
+
+            Paramters
+            ---------
+            * terry:                    an instance of the class FirmInvestmentModel
+            * NYearsPerFirm:            number of years per firm
+            * NFirms:                   number of firms
+            * seed:                     seed
+            * burnin:                   burn-in period (i.e. number of first periods to be added first and then excluded in the final simulated panel)
+
+            Output
+            ------
+            * Simdata (dimension (NYearsPerFirm x NFirms) x 8) with the following columns
+            ** col1: id of the firm
+            ** col2: year
+            ** col3: profitability = z*(k^alpha)/K
+            ** col4: investment rate = I/K
+            ** col5: decision rule (issue equity or not)
+            ** col6: y = zsim(t,i) * (k^alpha)
+            ** col7: k
+            ** col8: z
+        """
+
         nfirms = sim_param["number_firms"]
         nyears = sim_param["number_years_per_firm"]
         nsim = sim_param["number_simulations_per_firm"]
