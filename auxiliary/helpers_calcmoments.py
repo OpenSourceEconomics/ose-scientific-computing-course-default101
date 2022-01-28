@@ -74,7 +74,7 @@ def calc_moments(data, DataFrame=False):
     else:
         moments[0] = data[:,2].mean()
         moments[1] = data[:,3].mean()
-        moments[2] = data[:,2].var()
+        moments[2] = data[:,4].var()
 
     return moments
 
@@ -101,6 +101,32 @@ def add_deviations_from_sample_mean(data):
     data_merged.drop(list(data_merged.filter(regex = '_firmmean')), axis=1, inplace=True)
 
     return data_merged
+
+def demean_by_index(data, index):
+    """
+    Demeans data by sorted index values. data and index must be np.arrays of same length
+
+    Args
+    ----
+    data
+    index
+
+    Returns
+    -------
+    data_demeaned
+    """
+    
+    indexed_data = np.vstack((index, data)).T
+
+    occurrences = np.unique(indexed_data[:, 0], return_index=True, return_counts=True)
+    
+    split_data = np.split(indexed_data[:, 1], occurrences[1][1:])
+
+    means_per_index = np.array([xx.mean() for xx in split_data])
+
+    data_demeaned = data - np.repeat(means_per_index, occurrences[2])
+
+    return data_demeaned
 
 def get_nyears_per_firm(data):
     """

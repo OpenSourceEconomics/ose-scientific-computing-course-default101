@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from auxiliary.helpers_plotting import line_plot, threedim_plot, plot_mom_sensitivity
-from auxiliary.helpers_calcmoments import calc_moments
+from auxiliary.helpers_calcmoments import calc_moments, demean_by_index
 from auxiliary.helpers_general import gridlookup, gridlookup_nb
 
 class Model:
@@ -231,6 +231,8 @@ class Model:
         profitsim[profitsim < 0] = (1 + self.gamma) * profitsim[profitsim < 0]
         esim[profitsim < 0] = -profitsim[profitsim < 0]
 
+        profitabilitysim_demeaned = demean_by_index(\
+            profitabilitysim[burnin:burnin+nyears,:].T.flatten(), np.repeat(np.arange(M), nyears))
                     
         # Allocate final panel
         SimData = np.vstack( (\
@@ -238,6 +240,7 @@ class Model:
                 np.tile(np.arange(nyears), M),
                 profitabilitysim[burnin:burnin+nyears,:].T.flatten(),
                 investmentrate[burnin:burnin+nyears,:].T.flatten(),
+                profitabilitysim_demeaned,
                 esim[burnin:burnin+nyears,:].T.flatten(),
                 ysim[burnin:burnin+nyears,:].T.flatten(),
                 ksim[burnin:burnin+nyears,:].T.flatten(),
