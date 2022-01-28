@@ -199,7 +199,8 @@ class Model:
             iz = shock_series_indices[t,:]
             iloc = gridlookup_nb(self.nk, self.capital_grid, kval)
             weight = (self.capital_grid[iloc+1] - kval) / ((self.capital_grid[iloc+1]) - self.capital_grid[iloc])
-
+            weight [weight > 1] = 1
+            
             kfval = policy_func[iz-1, iloc]*weight + policy_func[iz-1, iloc+1]*(1-weight)
 
             ksim[t+1, :] = kfval
