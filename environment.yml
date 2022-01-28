@@ -10,6 +10,7 @@ dependencies:
 - scipy
 - statsmodels
 - pip
-- pip:
+- pip: 
+  - Py-BOBYQA
 
 
