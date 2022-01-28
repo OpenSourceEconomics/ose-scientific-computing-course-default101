@@ -27,7 +27,7 @@ def plot_mom_sensitivity(grids, moments, xlabel, \
     """
     Auxiliary function for visualizing the sensitivity of the moments to the model parameters.
     """
-    fig, axs = plt.subplots(nrows=nmoments,ncols=2, sharex='col')
+    fig, axs = plt.subplots(nrows=nmoments,ncols=2, sharex='col', figsize=(10,6))
 
     fig.suptitle(title)
 
@@ -85,12 +85,13 @@ def visualize_model_fit(sample, model, alpha, delta, sim_param):
     to_plot = data_orig.append(final_sim_data, ignore_index=True)
     to_plot.replace({'inv_rate':'investment rate'}, inplace=True)
 
+    # Plotting
     fig,ax = plt.subplots(figsize=(5, 6))
     ax.grid(axis='y')
     ax.legend([f'data, N: {size["data"]}', f'model, N: {size["model"]}'])
     ax = sns.boxplot(x="variable", y="value", hue="type", width=0.3, data=to_plot, whis=0.4, showfliers=False, showmeans=True)
     ax.set_xlabel("")
     ax.set_ylabel("")
-
+    ax.set_title("Comparing the distribution of targeted moments")
 
     plt.show()

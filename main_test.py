@@ -63,6 +63,6 @@ if __name__=='__main__':
 
     model.visualize_model_sol(visualization_param)
     model.visualize_simulated_capital(visualization_param, sim_param)
-    # model.visualize_mom_sensitivity(visualization_param, sim_param)
+    model.visualize_mom_sensitivity(visualization_param, sim_param)
 
     visualize_model_fit(sample, model, alpha, delta, sim_param)
