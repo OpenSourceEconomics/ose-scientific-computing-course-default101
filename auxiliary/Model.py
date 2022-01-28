@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from auxiliary.helpers_plotting import line_plot, threedim_plot, plot_mom_sensitivity
@@ -152,6 +153,48 @@ class Model:
         return start_capital
 
     def _run_sim(self, alpha, delta, policy_func, start_capital, shock_series, shock_series_indices, sim_param):
+        # Reshape
+        policy_func = np.reshape(policy_func, (self.nz, self.nk))
+
+        # Set seed
+        np.random.seed(sim_param["seed"])
+
+        
+        nfirms = sim_param["number_firms"]
+        nyears = sim_param["number_years_per_firm"]
+        nsim = sim_param["number_simulations_per_firm"]
+        burnin = sim_param["burnin"]
+        
+        M = nfirms*nsim
+
+        # Total time for the loop
+        NyearsPerFirmsburn = nyears + burnin
+
+        # storage variables       
+        ksim = np.zeros((NyearsPerFirmsburn+1, nfirms))
+        ksim[0, 0:nfirms] = start_capital #do all firms start with the same capital? yes
+
+        for t in range(NyearsPerFirmsburn):
+            kval = ksim[t,:]
+            iz = shock_series_indices[t,:]
+            iloc = gridlookup_nb(self.nk, self.capital_grid, kval)
+            weight = (self.capital_grid[iloc+1] - kval) / (self.capital_grid[iloc+1] - self.capital_grid[iloc])
+            weight [weight > 1] = 1
+            # tmp = (kval >= self.capital_grid[iloc])
+            # if not tmp.all():
+            #     print(t)
+            #     df = pd.DataFrame(np.vstack((tmp, kval, self.capital_grid[iloc], iloc))).transpose()
+            #     df.rename(columns={list(df)[0]: 'true'}, inplace=True)
+            #     print(df[ df['true'] < 1 ])
+
+            kfval = policy_func[iz-1, iloc]*weight + policy_func[iz-1, iloc+1]*(1-weight)
+
+            ksim[t+1, :] = kfval
+
+        return ksim
+
+
+    def _collect_sim_data(self, ksim, sim_param, shock_series, alpha, delta):
         """
             Simulates a panel.
 
@@ -175,47 +218,7 @@ class Model:
             ** col7: k
             ** col8: z
         """
-        # Solve the model for the instance terry
-        # V, polind, pol, equity_iss = solve_model_notreshaped(terry)
 
-
-        # Reshape
-        policy_func = np.reshape(policy_func, (self.nz, self.nk))
-
-        # Set seed
-        np.random.seed(sim_param["seed"])
-
-        
-        nfirms = sim_param["number_firms"]
-        nyears = sim_param["number_years_per_firm"]
-        nsim = sim_param["number_simulations_per_firm"]
-        burnin = sim_param["burnin"]
-        
-        M = nfirms*nsim
-
-        # Total time for the loop
-        NyearsPerFirmsburn = nyears + burnin
-
-        # storage variables       
-        ksim = np.zeros((NyearsPerFirmsburn+1, nfirms))
-        ksim[0, 0:nfirms] = start_capital #do all firms start with the same capital? check def of k0val and terrys kvec
-
-
-        for t in range(NyearsPerFirmsburn):
-            kval = ksim[t,:]
-            iz = shock_series_indices[t,:]
-            iloc = gridlookup_nb(self.nk, self.capital_grid, kval)
-            weight = (self.capital_grid[iloc+1] - kval) / ((self.capital_grid[iloc+1]) - self.capital_grid[iloc])
-
-            kfval = policy_func[iz-1, iloc]*weight + policy_func[iz-1, iloc+1]*(1-weight)
-
-            ksim[t+1, :] = kfval
-            
-        return ksim
-
-    def _collect_sim_data(self, ksim, sim_param, shock_series, alpha, delta):
-
-        
         nfirms = sim_param["number_firms"]
         nyears = sim_param["number_years_per_firm"]
         nsim = sim_param["number_simulations_per_firm"]
