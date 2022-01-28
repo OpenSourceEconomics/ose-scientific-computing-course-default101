@@ -5,6 +5,7 @@ from auxiliary.helpers_calcmoments import *
 from auxiliary.Model import Model
 from auxiliary.tauchen import approx_markov
 from numpy.linalg import inv
+import pybobyqa
 
 def _objective_func(sample, model, sim_param):
     """
@@ -15,10 +16,15 @@ def _objective_func(sample, model, sim_param):
         
     return f
 
-def _run_optimization(obj_func, parameter_space):
+def _run_optimization(obj_func, parameter_space, solver="dual_annealing"):
     """
     """
-    ret = dual_annealing(obj_func, bounds=parameter_space, maxiter=100)
+
+    if solver=="dual_annealing":
+        ret = dual_annealing(obj_func, bounds=parameter_space, maxiter=10)
+    elif solver=="":
+        pass
+
 
     return ret
 
@@ -27,7 +33,7 @@ def _optimization(sample, model, sim_param):
     # OPEN: take out parameters of dual_annealing!
     """
     f = _objective_func(sample, model, sim_param)
-    bounds=sim_param["bounds_optimizer"]
+    bounds = sim_param["bounds_optimizer"]
 
     out = _run_optimization(f, bounds)
     # out is a dictionary with keys: ['success', 'status', 'x', 'fun', 'nit', 'nfev', 'njev', 'nhev', 'message']
@@ -88,4 +94,4 @@ def get_estimation_results(sample, model, sim_param):
     sim_moments_est = _get_sim_moments_est(model, alpha_est, delta_est, sim_param)
 
     # return parameter_est, se_est, covar_est, sim_moments_est
-    return final_est, sim_moments_est
+    return final_est, sim_moments_est, result
