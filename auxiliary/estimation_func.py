@@ -3,7 +3,6 @@ import numpy as np
 from scipy.optimize import dual_annealing
 from auxiliary.helpers_calcmoments import *
 from auxiliary.Model import Model
-from auxiliary.tauchen import approx_markov
 from numpy.linalg import inv
 import pybobyqa
 

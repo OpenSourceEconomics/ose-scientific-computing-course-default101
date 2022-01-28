@@ -1,14 +1,16 @@
 import numpy as np
+import seaborn as sns
+from numpy.linalg import inv
+
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from auxiliary.helpers_plotting import line_plot, threedim_plot, plot_mom_sensitivity
 from auxiliary.helpers_calcmoments import calc_moments, demean_by_index
-from auxiliary.helpers_general import gridlookup, gridlookup_nb
+from auxiliary.helpers_general import gridlookup_nb
 
 class Model:
     """
     Class definition
-    
     """
 
     def __init__(self, deep_param, discretization_param, approx_param) -> None:
@@ -30,21 +32,7 @@ class Model:
         self.nk = approx_param["size_capital_grid"]
 
     def _solve_model(self, alpha, delta, renew_a_d_flag=True, verbose=False, print_skip=250): 
-        """
-            Solves the model.
 
-            Parameters
-            ----------
-            * terry:    instance of the class FirmInvestmentModel
-
-            Output (not reshaped yet!)
-            ------
-            * Vold (vector of dimension terry.statenum):        value function
-            * polind (vector of dimension terry.statenum):      index of optimal policy on the k grid
-            * pol (vector of dimension terry.statenum)          optimal policy (point on the k grid)
-            * equity_iss (vector of dimension terry.statenum)   negative part of equity issuance
-        """
-        
         if renew_a_d_flag:
             self._create_capital_grid(alpha, delta)
             self._create_CF_grid(alpha, delta)
@@ -87,6 +75,23 @@ class Model:
 
         return value_func, policy_func
 
+
+    def _get_full_model_sol(self, alpha, delta, renew_a_d_flag=True):
+        
+        value_func, policy_func = self._solve_model(alpha, delta, renew_a_d_flag=renew_a_d_flag)
+        # optimal policy
+        opt_policies = self.capital_grid[policy_func]
+
+        # Select equity issuance based on optimized policy index
+        equity_iss = np.empty(len(policy_func))
+        for i in np.arange(self.nz*self.nk):
+            equity_iss[i] = self.CFfirm_mat[i, policy_func[i]]
+
+        equity_iss[equity_iss >= 0] = 0
+        equity_iss[equity_iss < 0] = -equity_iss[equity_iss<0]
+        return value_func, policy_func, opt_policies, equity_iss
+
+
     def _get_shock_stat_distr(self):
         # At time 1, for each firm, draws an initial z process from the stationary distribution of z (stationary means 10000 draws)
         pi00 = np.linalg.matrix_power(self.shock_transition, 10000)
@@ -97,6 +102,7 @@ class Model:
         shock_cum_transition = np.cumsum(self.shock_transition, axis=1)
 
         return shock_stat_distr, shock_cum_transition
+
 
     def _get_shock_series(self, sim_param):
 
@@ -128,11 +134,17 @@ class Model:
             shock_cum_transition_t = self.shock_cum_transition[izsim[t-1, :], :]
             izsim[t,:] = np.sum((runif[t,:] - shock_cum_transition_t.T) >= 0, axis=0)
 
-        # print(zsim, izsim)
-
         zsim = self.shock_grid[izsim]
 
         return zsim, izsim
+
+
+    def _get_start_capital(self):
+
+        start_capital = (self.capital_grid[0] + self.capital_grid[-1])/2
+
+        return start_capital
+
 
     def _simulate_model(self, alpha, delta, sim_param, verbose=True):
 
@@ -146,37 +158,9 @@ class Model:
 
         return SimData
 
-    def _get_start_capital(self):
-
-        start_capital = (self.capital_grid[0] + self.capital_grid[-1])/2
-
-        return start_capital
 
     def _run_sim(self, alpha, delta, policy_func, start_capital, shock_series, shock_series_indices, sim_param):
-        """
-            Simulates a panel.
-
-            Paramters
-            ---------
-            * terry:                    an instance of the class FirmInvestmentModel
-            * NYearsPerFirm:            number of years per firm
-            * NFirms:                   number of firms
-            * seed:                     seed
-            * burnin:                   burn-in period (i.e. number of first periods to be added first and then excluded in the final simulated panel)
-
-            Output
-            ------
-            * Simdata (dimension (NYearsPerFirm x NFirms) x 8) with the following columns
-            ** col1: id of the firm
-            ** col2: year
-            ** col3: profitability = z*(k^alpha)/K
-            ** col4: investment rate = I/K
-            ** col5: decision rule (issue equity or not)
-            ** col6: y = zsim(t,i) * (k^alpha)
-            ** col7: k
-            ** col8: z
-        """
-                # Reshape
+        # Reshape
         policy_func = np.reshape(policy_func, (self.nz, self.nk))
         
         nfirms = sim_param["number_firms"]
@@ -208,7 +192,29 @@ class Model:
         return ksim
 
     def _collect_sim_data(self, ksim, sim_param, shock_series, alpha, delta):
+        """
+            Simulates a panel.
 
+            Paramters
+            ---------
+            * terry:                    an instance of the class FirmInvestmentModel
+            * NYearsPerFirm:            number of years per firm
+            * NFirms:                   number of firms
+            * seed:                     seed
+            * burnin:                   burn-in period (i.e. number of first periods to be added first and then excluded in the final simulated panel)
+
+            Output
+            ------
+            * Simdata (dimension (NYearsPerFirm x NFirms) x 8) with the following columns
+            ** col1: id of the firm
+            ** col2: year
+            ** col3: profitability = z*(k^alpha)/K
+            ** col4: investment rate = I/K
+            ** col5: decision rule (issue equity or not)
+            ** col6: y = zsim(t,i) * (k^alpha)
+            ** col7: k
+            ** col8: z
+        """
         
         nfirms = sim_param["number_firms"]
         nyears = sim_param["number_years_per_firm"]
@@ -346,21 +352,6 @@ class Model:
         self.CFfirm_mat = CFfirm_mat
         return 1
 
-    def _get_full_model_sol(self, alpha, delta, renew_a_d_flag=True):
-
-        value_func, policy_func = self._solve_model(alpha, delta, renew_a_d_flag=renew_a_d_flag)
-        # optimal policy
-        opt_policies = self.capital_grid[policy_func]
-
-        # Select equity issuance based on optimized policy index
-        equity_iss = np.empty(len(policy_func))
-        for i in np.arange(self.nz*self.nk):
-            equity_iss[i] = self.CFfirm_mat[i, policy_func[i]]
-
-        equity_iss[equity_iss >= 0] = 0
-        equity_iss[equity_iss < 0] = -equity_iss[equity_iss<0]
-        return value_func, policy_func, opt_policies, equity_iss
-
     def _get_sim_moments(self, alpha, delta, sim_param):
 
         sim_data = self._simulate_model(alpha, delta, sim_param)
@@ -411,19 +402,30 @@ class Model:
 
         return moments_alpha, moments_delta
 
-    def visualize_model_sol(self, alpha, delta, renew_a_d_flag=True):
-        """
-            Visualizes the model solution (in 2D and 3D) taking alpha and delta as input for instantiating the class FirmInvestmentModel.
 
-            Input
+    def _get_a_d_grids(self, a_bounds, d_bounds, ngrid):
+    
+        grid_alpha = np.linspace(a_bounds[0], a_bounds[1], ngrid)
+        grid_delta = np.linspace(d_bounds[0], d_bounds[1], ngrid)
+
+        return grid_alpha, grid_delta
+
+
+    def visualize_model_sol(self, visualization_param, renew_a_d_flag=True):
+        """
+            Visualizes the model solution (in 2D and 3D) for a given alpha and delta.
+
+            Args:
             -----
-            * alpha:    parameter of interest (capital's share of output)
-            * delta:    parameter of interest (depreciation rate)
+            * viszalization_param:      visual. parameter (alpha and delta range)
+            * sim_params:               simulation parameter
             
-            Output
+            Returns:
             ------
             plots
         """
+        alpha = visualization_param["fixed alpha"]
+        delta = visualization_param["fixed delta"]
 
         # Solve the model
         value_func, _, opt_policies, equity_iss = self._get_full_model_sol(alpha, delta, renew_a_d_flag=renew_a_d_flag)
@@ -442,9 +444,46 @@ class Model:
         threedim_plot(self.shock_grid, self.capital_grid, value_func, "z", "k", "V(z,k)", "Firm Value, (alpha, delta) = ({}, {})".format(alpha, delta))
         threedim_plot(self.shock_grid, self.capital_grid, opt_policies, "z", "k", "kprime(z,k)", "Firm Capital Choice, (alpha, delta) = ({}, {})".format(alpha, delta))
         threedim_plot(self.shock_grid, self.capital_grid, equity_iss, "z", "k", "Negative Part(Equity Issuance)", "Negative Part(Equity Issuance), (alpha, delta) = ({}, {})".format(alpha, delta))
-        
-    def visualize_mom_sensitivity(self, visualization_param, sim_param):
 
+
+    def visualize_simulated_capital(self, visualization_param, sim_param):
+        """
+            Visualizes the simulated capital.
+
+            Args:
+            -----
+            * viszalization_param:      visual. parameter (alpha and delta range)
+            * sim_params:               simulation parameter
+            
+            Returns:
+            ------
+            plots
+        """
+        alpha = visualization_param["fixed alpha"]
+        delta = visualization_param["fixed delta"]
+
+        sim = self._simulate_model(alpha, delta, sim_param)
+
+        fig,ax = plt.subplots()
+        ax.hist(sim[:,6], bins=100)
+        ax.set_xlabel("capital (k)")
+        ax.set_title("Histogram of simulated capital values")
+        plt.show()
+
+
+    def visualize_mom_sensitivity(self, visualization_param, sim_param):
+        """
+            Visualizes the sensitivity of the moments to alpha and delta.
+
+            Args:
+            -----
+            * viszalization_param:      visual. parameter (alpha and delta range)
+            * sim_params:               simulation parameter
+            
+            Returns:
+            ------
+            plots
+        """
         a_bounds = visualization_param["alpha grid bounds"]
         d_bounds = visualization_param["delta grid bounds"]
         mid_alpha = visualization_param["fixed alpha"]
@@ -462,68 +501,11 @@ class Model:
 
         plot_mom_sensitivity((grid_alpha, grid_delta), (x,y), xlabel)
 
-    def _get_a_d_grids(self, a_bounds, d_bounds, ngrid):
-
-        grid_alpha = np.linspace(a_bounds[0], a_bounds[1], ngrid)
-        grid_delta = np.linspace(d_bounds[0], d_bounds[1], ngrid)
-
-        return grid_alpha, grid_delta
-
-    def test_model_solve(self, alpha, delta):
-        
-        self.capital_grid = self._create_capital_grid(alpha, delta)
 
     def test_model_sim(self, alpha, delta, sim_param):
-
         out = self._get_sim_moments(alpha, delta, sim_param)
 
         return out
 
 
-if __name__=='__main__':
 
-    
-    seed = 10082021
-    np.random.seed(seed)
-
-    alpha = 0.5
-    delta = 0.05
-    
-    deep_param = {
-        "beta" : 0.96,
-        "gamma": 0.05,
-        "rho" : 0.7, 
-        "sigma" : 0.15
-    }
-
-    discretization_param = {
-        "size_shock_grid" : 11, 
-        "range_shock_grid" : 2.575
-    }
-
-    approx_param = {
-        "max_iter" : 30, 
-        "precision" : 1e-4, 
-        "size_capital_grid" : 101, 
-    }
-
-    sim_param = {
-        "number_firms" : 20, 
-        "number_simulations_per_firm" : 1, 
-        "number_years_per_firm" : 10, 
-        "burnin" : 30, 
-        "seed" : 10082021
-    }
-
-    visualization_param = {
-        "alpha grid bounds" : (0.45, 0.55), 
-        "delta grid bounds" : (0.04,0.06),
-        "fixed alpha" : alpha, 
-        "fixed delta" : delta, 
-        "parameter grid size" : 3
-    }
-
-    model = Model(deep_param, discretization_param, approx_param)
-    model._solve_model(alpha, delta, approx_param)
-
-    model.visualize_mom_sensitivity(visualization_param, sim_param)

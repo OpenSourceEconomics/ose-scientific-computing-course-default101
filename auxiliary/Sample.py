@@ -1,8 +1,8 @@
 from os import times_result
 import numpy as np
+
 from auxiliary.helpers_calcmoments import *
 from auxiliary.Model import Model
-from auxiliary.tauchen import approx_markov
 from numpy.linalg import inv
 
 class Sample:
