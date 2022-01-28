@@ -54,8 +54,13 @@ if __name__=='__main__':
         "no_param" : 2,
     }
 
+    opt_param = {
+        "solver" : "dual_annealing",
+
+    }
+
     model = Model(deep_param, discretization_param, approx_param)
-    # sample = Sample(mom_param)
+    sample = Sample(mom_param)
 
     # model._solve_model(alpha, delta, approx_param)
 
@@ -64,12 +69,15 @@ if __name__=='__main__':
 
     # print(sample.sample_mom)
 
-    print(model.test_model_sim(alpha, delta, sim_param))
+    # print(model.test_model_sim(alpha, delta, sim_param))
 
-    # est, sim_mom = get_estimation_results(sample, model, sim_param)
-    # print(f'{est=}')
-    # print(f'{sim_mom=}')
+    est, sim_mom, res = get_estimation_results(sample, model, sim_param, opt_param)
+    print(f'{est=}')
+    print(f'{sim_mom=}')
+    print(res)
 
     # test1, test2 = get_estimation_results(sample, model, sim_param)
     # print(f'{test1=}')
     # print(f'{test2=}')
+    
+    print("Done!")
