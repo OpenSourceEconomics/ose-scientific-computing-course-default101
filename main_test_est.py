@@ -38,7 +38,6 @@ if __name__=='__main__':
         "number_years_per_firm" : 10, 
         "burnin" : 200, 
         "seed" : 10082021,
-        "bounds_optimizer": [[0.001,1], [0.001, 0.3]],
     }
 
     visualization_param = {
@@ -55,8 +54,15 @@ if __name__=='__main__':
     }
 
     opt_param = {
-        "solver" : "dual_annealing",
-
+        "solver" : "bobyqa",
+        # "solver" : "dual_annealing",
+        "start_value" : np.array([alpha, delta]),
+        "bounds_optimizer": [[0.001,1], [0.001, 0.3]],
+        "bounds_optimizer_bobyqa" : (np.array([0,0]), np.array([1,0.3])),
+        "max_iter" : 10,
+        "step_size" : np.finfo(float).eps**(1/3),
+        "noise_range" : 10**(-np.arange(7)),
+        "noisy_function_opt" : False
     }
 
     model = Model(deep_param, discretization_param, approx_param)
@@ -71,10 +77,13 @@ if __name__=='__main__':
 
     # print(model.test_model_sim(alpha, delta, sim_param))
 
-    est, sim_mom, res = get_estimation_results(sample, model, sim_param, opt_param)
-    print(f'{est=}')
-    print(f'{sim_mom=}')
-    print(res)
+    # est, sim_mom, res, se = get_estimation_results(sample, model, sim_param, opt_param)
+    # print(f'{est=}')
+    # print(f'{sim_mom=}')
+    # print(res)
+    # print(se)
+
+    run_noisy_estimation(sample, model, sim_param, opt_param)
 
     # test1, test2 = get_estimation_results(sample, model, sim_param)
     # print(f'{test1=}')

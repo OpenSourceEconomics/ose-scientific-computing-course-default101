@@ -5,7 +5,7 @@ import numpy as np
 def gridlookup(n, grid, valplace):
     """Check in which interval/ capital state valplace is"""
     
-    ilow = 1
+    ilow = 0
     ihigh = n-1
 
     distance = 2
