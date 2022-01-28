@@ -66,7 +66,7 @@ class Model:
             
         policy_func = np.argmax(RHSmat, axis=1)
 
-        if i == self.max_iter:
+        if i == self.max_iter and verbose:
             print("Failed to converge!")
 
         if verbose and i < self.max_iter:
@@ -146,7 +146,7 @@ class Model:
         return start_capital
 
 
-    def _simulate_model(self, alpha, delta, sim_param, verbose=True):
+    def _simulate_model(self, alpha, delta, sim_param, verbose=False):
 
         shock_series, shock_series_indices = self._get_shock_series(sim_param)
         _, policy_func = self._solve_model(alpha, delta, verbose=verbose)
@@ -417,7 +417,7 @@ class Model:
 
             Args:
             -----
-            * viszalization_param:      visual. parameter (alpha and delta range)
+            * visualization_param:      visual. parameter (alpha and delta range)
             * sim_params:               simulation parameter
             
             Returns:
@@ -452,7 +452,7 @@ class Model:
 
             Args:
             -----
-            * viszalization_param:      visual. parameter (alpha and delta range)
+            * visualization_param:      visual. parameter (alpha and delta range)
             * sim_params:               simulation parameter
             
             Returns:

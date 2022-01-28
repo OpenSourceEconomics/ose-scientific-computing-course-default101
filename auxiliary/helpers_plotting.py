@@ -95,3 +95,30 @@ def visualize_model_fit(sample, model, alpha, delta, sim_param):
     ax.set_title("Comparing the distribution of targeted moments")
 
     plt.show()
+
+def collect_estimation_res(est, std_err):
+
+
+
+    pass
+
+def plot_noisy_optima(xx, yy, \
+                    labels=["estimator of alpha", "estimator of delta"],\
+                    colors=["red", "green"],\
+                    title="Robustness to noisy function evaluations of estimates for alpha and delta", nparam=2):
+    """
+    Auxiliary function for visualizing the Robustness to noisy function evaluations of estimates for alpha and delta.
+    """
+    fig, axs = plt.subplots(nrows=nparam,ncols=1, figsize=(10,6))
+
+    fig.suptitle(title)
+
+    for i in range(nparam):
+        axs[i].plot(xx, yy[:,i], color=colors[i], label=labels[i])
+        axs[i].legend()
+
+    # axs[i].set_xlabel('{}'.format(xlabel['alpha']))
+    # axs[i].set_xlabel('{}'.format(xlabel['delta']))
+
+    plt.show()
+

@@ -2,8 +2,7 @@ from os import times_result
 import numpy as np
 from scipy.optimize import dual_annealing
 from auxiliary.helpers_calcmoments import *
-# from auxiliary.helpers_plotting import plot_noisy_optima
-import matplotlib.pyplot as plt
+from auxiliary.helpers_plotting import plot_noisy_optima
 import pybobyqa
 
 def _objective_func(sample, model, sim_param, noise):
@@ -37,7 +36,7 @@ def _run_optimization(obj_func, opt_param):
                             bounds=opt_param["bounds_optimizer_bobyqa"], 
                             maxfun=opt_param["max_iter"],
                             objfun_has_noise=opt_param["noisy_function_opt"],
-                            # seek_global_minimum=True
+                            seek_global_minimum=True
                             )
 
     return ret
@@ -129,7 +128,6 @@ def get_estimation_results(sample, model, sim_param, opt_param):
         # f: objective vaule at x,
         # gradient: estimate of gradient at x
         final_est = result.x
-        print(result)
         alpha_est = final_est[0]
         delta_est = final_est[1]
 
@@ -144,24 +142,15 @@ def run_noisy_estimation(sample, model, sim_param, opt_param):
 
 
     noise_range = opt_param["noise_range"]
-    minima = np.zeros((2,len(noise_range)))
+    minima = np.zeros((len(noise_range),2))
 
-    for i, noise in noise_range:
+    for i in range(len(noise_range)):
 
-        res = _optimization(sample, model, sim_param, opt_param, noise=noise)
-        minima[i] = res["x"]
+        res = _optimization(sample, model, sim_param, opt_param, noise=noise_range[i])
+        if opt_param["solver"]=="dual_annealing":
+            minima[i] = res['x']
+
+        elif opt_param["solver"]=="bobyqa":
+            minima[i] = res.x
 
     plot_noisy_optima(noise_range, minima)
-
-
-def plot_noisy_optima(xx, yy):
-
-    
-    fig, ax = plt.subplots()
-    ax.plot(xx, yy[0,:], color='red', label='low productivity shock')
-    ax.plot(xx, yy[1,:], color='green', label='medium productivity shock')
-    # ax.set_xlabel('{}'.format(xlabel))
-    # ax.set_ylabel('{}'.format(ylabel))
-    # ax.set_title(title)
-    ax.legend()
-    plt.show()
